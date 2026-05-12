@@ -136,6 +136,20 @@
     .btn-dns-now:hover:not(:disabled) { background: #dbeafe; }
     .btn-dns-now:disabled { opacity: 0.4; cursor: default; }
 
+    /* PROJECT SETTINGS */
+    .settings-bar { background: #fafafa; border-bottom: 1px solid #e5e7eb; padding: 12px 32px; }
+    .settings-bar-header { display: flex; align-items: center; gap: 8px; cursor: pointer; user-select: none; margin-bottom: 0; }
+    .settings-bar-header.open { margin-bottom: 12px; }
+    .settings-bar-title { font-size: 12px; font-weight: 700; color: #888; }
+    .settings-bar-hint { font-size: 11px; color: #bbb; flex: 1; }
+    .settings-groups { display: flex; gap: 24px; flex-wrap: wrap; }
+    .settings-group-label { font-size: 11px; font-weight: 700; color: #999; margin-bottom: 6px; }
+    .settings-options { display: flex; gap: 6px; flex-wrap: wrap; }
+    .settings-opt input[type="radio"] { display: none; }
+    .settings-opt label { font-size: 12px; padding: 4px 12px; border-radius: 20px; border: 1.5px solid #e5e7eb; cursor: pointer; color: #555; background: white; white-space: nowrap; display: block; }
+    .settings-opt input[type="radio"]:checked + label { border-color: #4f46e5; background: #eef2ff; color: #4f46e5; font-weight: 600; }
+    .settings-opt label:hover { border-color: #c7d2fe; background: #f5f3ff; }
+
     /* MEMO BAR */
     .memo-bar { background: white; border-bottom: 1px solid #e5e7eb; padding: 10px 32px; }
     .memo-bar label { font-size: 11px; font-weight: 600; color: #999; display: block; margin-bottom: 4px; }
@@ -308,6 +322,41 @@
         <label>備考・メモ</label>
         <textarea id="editMemo" placeholder="案件に関するメモ、注意事項、引き継ぎ事項など..." oninput="onMemoInput()"></textarea>
       </div>
+      <div class="settings-bar">
+        <div class="settings-bar-header" id="settingsHeader" onclick="toggleSettings()">
+          <span style="font-size:13px">⚙️</span>
+          <span class="settings-bar-title">プロジェクト種別</span>
+          <span class="settings-bar-hint" id="settingsHint">選択するとチェックリストが絞り込まれます ▸</span>
+        </div>
+        <div id="settingsBody" style="display:none">
+          <div class="settings-groups">
+            <div>
+              <div class="settings-group-label">ドメイン</div>
+              <div class="settings-options">
+                <span class="settings-opt"><input type="radio" name="domain_type" id="dt_new"      value="new"      onchange="onSettingsChange()"><label for="dt_new">🆕 新規取得</label></span>
+                <span class="settings-opt"><input type="radio" name="domain_type" id="dt_transfer" value="transfer" onchange="onSettingsChange()"><label for="dt_transfer">🔄 移管</label></span>
+                <span class="settings-opt"><input type="radio" name="domain_type" id="dt_existing" value="existing" onchange="onSettingsChange()"><label for="dt_existing">♻️ 既存流用</label></span>
+              </div>
+            </div>
+            <div>
+              <div class="settings-group-label">Webサーバー</div>
+              <div class="settings-options">
+                <span class="settings-opt"><input type="radio" name="server_type" id="st_new"      value="new"      onchange="onSettingsChange()"><label for="st_new">🆕 新規契約</label></span>
+                <span class="settings-opt"><input type="radio" name="server_type" id="st_migrate"  value="migrate"  onchange="onSettingsChange()"><label for="st_migrate">🔄 移行・乗り換え</label></span>
+                <span class="settings-opt"><input type="radio" name="server_type" id="st_existing" value="existing" onchange="onSettingsChange()"><label for="st_existing">♻️ 既存継続</label></span>
+              </div>
+            </div>
+            <div>
+              <div class="settings-group-label">メールサーバー</div>
+              <div class="settings-options">
+                <span class="settings-opt"><input type="radio" name="mail_type" id="mt_new"      value="new"      onchange="onSettingsChange()"><label for="mt_new">🆕 新規設定</label></span>
+                <span class="settings-opt"><input type="radio" name="mail_type" id="mt_existing" value="existing" onchange="onSettingsChange()"><label for="mt_existing">♻️ 既存継続</label></span>
+                <span class="settings-opt"><input type="radio" name="mail_type" id="mt_none"     value="none"     onchange="onSettingsChange()"><label for="mt_none">➖ なし</label></span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
       <div class="checklist-area" id="checklistArea"></div>
     </div>
   </main>
@@ -350,17 +399,41 @@ const PHASES = [
   {
     id: 'pre_months', icon: '🗓️', title: '公開1〜2ヶ月前',
     sections: [
-      { label: 'ドメイン取得（公開6週前目安）', items: [
-        { id: 'domain_search',   label: 'ドメイン名の候補選定・空き確認', note: '希望ドメインが取得可能か事前に確認。取得済みの場合は移管対応も確認' },
-        { id: 'domain_contract', label: 'ドメインの取得・契約', note: '移管・新規取得とも時間がかかる場合あり。遅くとも公開6週前までに完了', critical: true },
-        { id: 'domain_auth',     label: 'ドメイン認証・所有者情報の確認', note: 'Whois 情報・認証メールの受信確認' },
+      { label: 'ドメイン（公開6週前目安）', items: [
+        // 新規取得
+        { id: 'domain_search',           label: 'ドメイン名の候補選定・空き確認',        note: '希望ドメインが取得可能か確認', conditions: ['domain:new'] },
+        { id: 'domain_contract',         label: 'ドメインの取得・契約',                  note: '遅くとも公開6週前までに完了', critical: true, conditions: ['domain:new'] },
+        // 移管
+        { id: 'domain_transfer_unlock',  label: '移管元のドメインロック解除',            note: '移管元レジストラの管理画面で操作', conditions: ['domain:transfer'] },
+        { id: 'domain_auth_code',        label: '認証コード（AuthCode）の取得',           note: '移管申請に必要。発行まで時間がかかる場合あり', critical: true, conditions: ['domain:transfer'] },
+        { id: 'domain_transfer_apply',   label: '移管申請の手続き',                       note: '移管完了まで1〜7日かかる場合あり', critical: true, conditions: ['domain:transfer'] },
+        { id: 'domain_transfer_confirm', label: '移管完了の確認',                         note: '移管完了メールの受信・管理画面での確認', conditions: ['domain:transfer'] },
+        // 既存流用
+        { id: 'domain_current_dns',      label: '現在のDNS設定・TTLを記録',              note: '切り替え前の設定を必ずメモ。TTLは事前に短縮しておくと良い', critical: true, conditions: ['domain:existing'] },
+        { id: 'domain_registrar',        label: 'ドメイン管理会社へのアクセス確認',       note: 'ログイン情報・DNS変更の権限があることを確認', conditions: ['domain:existing'] },
+        // 共通
+        { id: 'domain_whois',            label: 'ドメイン認証・所有者情報の確認',         note: 'Whois情報・認証メールの受信確認' },
       ]},
-      { label: 'サーバー・インフラ準備（公開4週前目安）', items: [
-        { id: 'server_plan',     label: '本番サーバーの選定・候補比較', note: '容量・PHPバージョン・メール・価格を比較' },
-        { id: 'server_contract', label: '本番サーバーの契約', note: '設定やドメイン紐付けに時間がかかるため遅くとも公開4週前までに', critical: true },
-        { id: 'email_plan',      label: 'メールアカウントの設計・取得', note: 'info@ / contact@ などのアドレス構成を確定。設定テストまで完了' },
-        { id: 'ssl_plan',        label: 'SSL証明書の種類・取得方法の確認', note: "Let's Encrypt / 有料証明書 / サーバー提供の無料SSL" },
-        { id: 'nameserver_record', label: '現在のネームサーバー設定を記録', note: '切り替え前の状態をメモしておく', critical: true },
+      { label: 'Webサーバー（公開4週前目安）', items: [
+        // 新規 or 移行
+        { id: 'server_plan',             label: '本番サーバーの選定・候補比較',           note: '容量・PHPバージョン・価格を比較', conditions: ['server:new', 'server:migrate'] },
+        { id: 'server_contract',         label: '本番サーバーの契約',                     note: '設定やドメイン紐付けに時間がかかるため遅くとも公開4週前までに', critical: true, conditions: ['server:new', 'server:migrate'] },
+        // 移行のみ
+        { id: 'server_old_backup',       label: '旧サーバーのデータ・DB完全バックアップ', note: '移行作業前に必ず旧サーバーを丸ごとバックアップ', critical: true, conditions: ['server:migrate'] },
+        // 既存継続のみ
+        { id: 'server_php_check',        label: 'サーバーのPHPバージョン・スペック確認', note: 'WordPress・プラグインとの互換性を確認', conditions: ['server:existing'] },
+        // 新規 or 移行
+        { id: 'ssl_plan',                label: 'SSL証明書の種類・取得方法の確認',         note: "Let's Encrypt / 有料証明書 / サーバー付属の無料SSL", conditions: ['server:new', 'server:migrate'] },
+        { id: 'nameserver_record',       label: '現在のネームサーバー設定を記録',          note: '切り替え前の状態をメモしておく', critical: true, conditions: ['server:new', 'server:migrate'] },
+      ]},
+      { label: 'メールサーバー（公開4週前目安）', items: [
+        // 新規
+        { id: 'email_plan',              label: 'メールアカウントの設計・アドレス決定',   note: 'info@ / contact@ などのアドレス構成を確定', conditions: ['mail:new'] },
+        { id: 'email_mx_plan',           label: 'MXレコードの設定計画',                   note: '使用するメールサーバーのMXレコード値を確認・記録', critical: true, conditions: ['mail:new'] },
+        { id: 'email_spf_dkim',          label: 'SPF・DKIM設定の計画',                    note: '迷惑メール対策。設定値をサーバー管理者に確認', conditions: ['mail:new'] },
+        // 既存継続
+        { id: 'email_mx_backup',         label: '現在のMXレコード設定を必ず記録',         note: 'DNS切り替え時にメールが止まらないよう事前に記録必須', critical: true, conditions: ['mail:existing'] },
+        { id: 'email_test_before',       label: '切り替え前のメール送受信テスト',         note: '現在のメール環境が正常に動作していることを確認', conditions: ['mail:existing'] },
       ]},
     ]
   },
@@ -502,7 +575,10 @@ async function saveProjectMeta(id) {
   await supabase.from('projects').update({
     name: p.name, url: p.url || null,
     launch_date: p.date || null, owner: p.owner || null,
-    memo: p.memo || null
+    memo: p.memo || null,
+    domain_type: p.domain_type || null,
+    server_type: p.server_type || null,
+    mail_type: p.mail_type || null,
   }).eq('id', id)
 }
 
@@ -522,10 +598,26 @@ function dbRowToProject(p) {
     id: p.id, name: p.name, url: p.url || '',
     date: p.launch_date || '', owner: p.owner || '',
     memo: p.memo || '',
+    domain_type: p.domain_type || null,
+    server_type: p.server_type || null,
+    mail_type: p.mail_type || null,
     dns_monitoring: p.dns_monitoring || false,
     dns_confirmed_at: p.dns_confirmed_at || null,
     createdAt: new Date(p.created_at).getTime(), checks: {}
   }
+}
+
+function itemApplies(item, proj) {
+  if (!item.conditions || item.conditions.length === 0) return true
+  const typeMap = { domain: 'domain_type', server: 'server_type', mail: 'mail_type' }
+  return item.conditions.some(c => {
+    const [field, value] = c.split(':')
+    const key = typeMap[field]
+    if (!key) return true
+    const projVal = proj[key]
+    if (!projVal) return true  // 未設定なら全て表示
+    return projVal === value
+  })
 }
 
 // ===== REALTIME =====
@@ -550,7 +642,7 @@ function subscribeRealtime() {
     .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'projects' }, payload => {
       const p = payload.new
       if (!projects[p.id]) return
-      Object.assign(projects[p.id], { name: p.name, url: p.url || '', date: p.launch_date || '', owner: p.owner || '', memo: p.memo || '', dns_monitoring: p.dns_monitoring || false, dns_confirmed_at: p.dns_confirmed_at || null })
+      Object.assign(projects[p.id], { name: p.name, url: p.url || '', date: p.launch_date || '', owner: p.owner || '', memo: p.memo || '', domain_type: p.domain_type || null, server_type: p.server_type || null, mail_type: p.mail_type || null, dns_monitoring: p.dns_monitoring || false, dns_confirmed_at: p.dns_confirmed_at || null })
       renderSidebar()
       if (p.id === currentId) {
         document.getElementById('editName').value = p.name
@@ -634,6 +726,7 @@ function renderProjectView() {
   document.getElementById('editMemo').value = proj.memo || ''
   document.getElementById('checkResultsGrid').style.display = 'none'
   syncCheckButton()
+  syncSettings()
   renderChecklist()
   updateProgress()
 }
@@ -648,9 +741,11 @@ function renderChecklist() {
     phase.sections.forEach(section => {
       sectionsHtml += `<div class="section-label">${section.label}</div>`
       section.items.forEach(item => {
+        if (!itemApplies(item, proj)) return
         const checked = proj.checks && proj.checks[item.id]
         phaseTotal++
         if (checked) phaseDone++
+        if (!itemApplies(item, proj)) return
         const critTag = item.critical ? `<span class="tag tag-critical">重要</span>` : ''
         let extraHtml = ''
         if (item.id === 'ns_switch' && checked) {
@@ -704,6 +799,43 @@ window._toggleItem = async function(itemId) {
   updateProgress()
   renderSidebar()
   await upsertCheck(currentId, itemId, newVal)
+}
+
+function syncSettings() {
+  const proj = projects[currentId]
+  if (!proj) return
+  const prefixMap = { domain_type: 'dt', server_type: 'st', mail_type: 'mt' }
+  Object.entries(prefixMap).forEach(([field, prefix]) => {
+    document.querySelectorAll(`input[name="${field}"]`).forEach(r => r.checked = false)
+    if (proj[field]) {
+      const el = document.getElementById(`${prefix}_${proj[field]}`)
+      if (el) el.checked = true
+    }
+  })
+  const allSet = proj.domain_type && proj.server_type && proj.mail_type
+  document.getElementById('settingsHint').textContent = allSet
+    ? '絞り込み中 ▸'
+    : '選択するとチェックリストが絞り込まれます ▸'
+}
+
+window.toggleSettings = function() {
+  const body = document.getElementById('settingsBody')
+  const hint = document.getElementById('settingsHint')
+  const open = body.style.display !== 'none'
+  body.style.display = open ? 'none' : ''
+  hint.textContent = hint.textContent.replace(/[▸▾]/, open ? '▸' : '▾')
+}
+
+window.onSettingsChange = function() {
+  if (!currentId) return
+  const proj = projects[currentId]
+  proj.domain_type = document.querySelector('input[name="domain_type"]:checked')?.value || null
+  proj.server_type = document.querySelector('input[name="server_type"]:checked')?.value || null
+  proj.mail_type   = document.querySelector('input[name="mail_type"]:checked')?.value   || null
+  renderChecklist()
+  updateProgress()
+  clearTimeout(metaSaveTimer)
+  metaSaveTimer = setTimeout(() => saveProjectMeta(currentId), 600)
 }
 
 window.startDnsMonitoring = async function() {

@@ -6,16 +6,49 @@ const APP_URL = process.env.APP_URL || 'https://launch-checklist-psi.vercel.app'
 
 // 各項目に「いつまでにやるべきか（公開N日前）」を定義
 // dueBy: この日数前までに完了推奨
+function itemApplies(item, project) {
+  if (!item.conditions || item.conditions.length === 0) return true
+  const typeMap = { domain: 'domain_type', server: 'server_type', mail: 'mail_type' }
+  return item.conditions.some(c => {
+    const [field, value] = c.split(':')
+    const key = typeMap[field]
+    if (!key) return true
+    const projVal = project[key]
+    if (!projVal) return true  // 未設定なら全て表示
+    return projVal === value
+  })
+}
+
 const ALL_ITEMS = [
-  // 1〜2ヶ月前
-  { id: 'domain_search',     label: 'ドメイン名の候補選定・空き確認',          dueBy: 42 },
-  { id: 'domain_contract',   label: 'ドメインの取得・契約',                    dueBy: 42 },
-  { id: 'domain_auth',       label: 'ドメイン認証・所有者情報の確認',           dueBy: 42 },
-  { id: 'server_plan',       label: '本番サーバーの選定・候補比較',             dueBy: 35 },
-  { id: 'server_contract',   label: '本番サーバーの契約',                      dueBy: 28 },
-  { id: 'email_plan',        label: 'メールアカウントの設計・取得',             dueBy: 28 },
-  { id: 'ssl_plan',          label: 'SSL証明書の種類・取得方法の確認',          dueBy: 28 },
-  { id: 'nameserver_record', label: '現在のネームサーバー設定を記録',           dueBy: 14 },
+  // ドメイン - 新規取得
+  { id: 'domain_search',           label: 'ドメイン名の候補選定・空き確認',        dueBy: 42, conditions: ['domain:new'] },
+  { id: 'domain_contract',         label: 'ドメインの取得・契約',                  dueBy: 42, conditions: ['domain:new'] },
+  // ドメイン - 移管
+  { id: 'domain_transfer_unlock',  label: '移管元のドメインロック解除',            dueBy: 42, conditions: ['domain:transfer'] },
+  { id: 'domain_auth_code',        label: '認証コード（AuthCode）の取得',           dueBy: 42, conditions: ['domain:transfer'] },
+  { id: 'domain_transfer_apply',   label: '移管申請の手続き',                       dueBy: 35, conditions: ['domain:transfer'] },
+  { id: 'domain_transfer_confirm', label: '移管完了の確認',                         dueBy: 28, conditions: ['domain:transfer'] },
+  // ドメイン - 既存流用
+  { id: 'domain_current_dns',      label: '現在のDNS設定・TTLを記録',              dueBy: 28, conditions: ['domain:existing'] },
+  { id: 'domain_registrar',        label: 'ドメイン管理会社へのアクセス確認',       dueBy: 28, conditions: ['domain:existing'] },
+  // ドメイン - 共通
+  { id: 'domain_whois',            label: 'ドメイン認証・所有者情報の確認',         dueBy: 35 },
+  // Webサーバー - 新規 or 移行
+  { id: 'server_plan',             label: '本番サーバーの選定・候補比較',           dueBy: 35, conditions: ['server:new', 'server:migrate'] },
+  { id: 'server_contract',         label: '本番サーバーの契約',                     dueBy: 28, conditions: ['server:new', 'server:migrate'] },
+  { id: 'server_old_backup',       label: '旧サーバーのデータ・DB完全バックアップ', dueBy: 28, conditions: ['server:migrate'] },
+  // Webサーバー - 既存継続
+  { id: 'server_php_check',        label: 'サーバーのPHPバージョン・スペック確認', dueBy: 14, conditions: ['server:existing'] },
+  // Webサーバー - 新規 or 移行
+  { id: 'ssl_plan',                label: 'SSL証明書の種類・取得方法の確認',         dueBy: 28, conditions: ['server:new', 'server:migrate'] },
+  { id: 'nameserver_record',       label: '現在のネームサーバー設定を記録',          dueBy: 14, conditions: ['server:new', 'server:migrate'] },
+  // メールサーバー - 新規
+  { id: 'email_plan',              label: 'メールアカウントの設計・アドレス決定',   dueBy: 28, conditions: ['mail:new'] },
+  { id: 'email_mx_plan',           label: 'MXレコードの設定計画',                   dueBy: 28, conditions: ['mail:new'] },
+  { id: 'email_spf_dkim',          label: 'SPF・DKIM設定の計画',                    dueBy: 21, conditions: ['mail:new'] },
+  // メールサーバー - 既存継続
+  { id: 'email_mx_backup',         label: '現在のMXレコード設定を必ず記録',         dueBy: 14, conditions: ['mail:existing'] },
+  { id: 'email_test_before',       label: '切り替え前のメール送受信テスト',         dueBy: 7,  conditions: ['mail:existing'] },
   // 1週間前
   { id: 'dev_freeze',        label: 'コンテンツ・デザインの最終確定',           dueBy: 7 },
   { id: 'plugin_check',      label: 'プラグインの動作確認・更新',               dueBy: 7 },
@@ -102,7 +135,7 @@ export default async function handler(req, res) {
   const sent = []
 
   // 公開日が設定されている全案件を取得
-  const projects = await sbFetch('/projects?launch_date=not.is.null&select=id,name,url,owner,launch_date')
+  const projects = await sbFetch('/projects?launch_date=not.is.null&select=id,name,url,owner,launch_date,domain_type,server_type,mail_type')
 
   for (const project of projects) {
     const daysUntil = Math.round(
@@ -119,11 +152,14 @@ export default async function handler(req, res) {
     )
     const done = new Set(checks.map(c => c.item_id))
 
+    // プロジェクト種別に応じて適用項目を絞り込み
+    const applicable = ALL_ITEMS.filter(i => itemApplies(i, project))
+
     // 対応が遅れている項目（dueBy > daysUntil かつ未完了）
-    const overdue = ALL_ITEMS.filter(i => !done.has(i.id) && i.dueBy > daysUntil)
+    const overdue = applicable.filter(i => !done.has(i.id) && i.dueBy > daysUntil)
 
     // 今のフェーズのネクストアクション（dueBy <= daysUntil、直近のもの上位5件）
-    const nextActions = ALL_ITEMS
+    const nextActions = applicable
       .filter(i => !done.has(i.id) && i.dueBy <= daysUntil)
       .sort((a, b) => b.dueBy - a.dueBy)  // 期限が近い順
       .slice(0, 5)
