@@ -342,7 +342,6 @@
               <select id="sel_server_type" class="settings-select" onchange="onSettingsChange()">
                 <option value="">— 選択してください —</option>
                 <option value="own">🏢 自社サーバーに移設</option>
-                <option value="migrate">🔄 外部サーバーに移行</option>
                 <option value="existing">♻️ 既存のまま</option>
               </select>
             </div>
@@ -416,16 +415,13 @@ const PHASES = [
         { id: 'domain_whois',            label: 'ドメイン認証・所有者情報の確認',         note: 'Whois情報・認証メールの受信確認' },
       ]},
       { label: 'Webサーバー（公開4週前目安）', items: [
-        // 新規 or 移行
-        { id: 'server_plan',             label: '本番サーバーの選定・候補比較',           note: '容量・PHPバージョン・価格を比較', conditions: ['server:own', 'server:migrate'] },
-        { id: 'server_contract',         label: '本番サーバーの契約',                     note: '設定やドメイン紐付けに時間がかかるため遅くとも公開4週前までに', critical: true, conditions: ['server:own', 'server:migrate'] },
-        // 移行のみ
-        { id: 'server_old_backup',       label: '旧サーバーのデータ・DB完全バックアップ', note: '移行作業前に必ず旧サーバーを丸ごとバックアップ', critical: true, conditions: ['server:migrate'] },
-        // 既存継続のみ
-        { id: 'server_php_check',        label: 'サーバーのPHPバージョン・スペック確認', note: 'WordPress・プラグインとの互換性を確認', conditions: ['server:existing'] },
-        // 新規 or 移行
-        { id: 'ssl_plan',                label: 'SSL証明書の種類・取得方法の確認',         note: "Let's Encrypt / 有料証明書 / サーバー付属の無料SSL", conditions: ['server:own', 'server:migrate'] },
-        { id: 'nameserver_record',       label: '現在のネームサーバー設定を記録',          note: '切り替え前の状態をメモしておく', critical: true, conditions: ['server:own', 'server:migrate'] },
+        // 自社移設
+        { id: 'server_old_backup', label: '旧サーバーのデータ・DB完全バックアップ', note: '移設作業前に必ず旧サーバーを丸ごとバックアップ', critical: true, conditions: ['server:own'] },
+        { id: 'server_php_check',  label: '自社サーバーのPHPバージョン・スペック確認', note: 'WordPress・プラグインとの互換性を確認', conditions: ['server:own'] },
+        { id: 'ssl_plan',          label: 'SSL証明書の設定確認',                    note: "Let's Encrypt / 有料証明書 / サーバー付属の無料SSL", conditions: ['server:own'] },
+        { id: 'nameserver_record', label: '現在のネームサーバー設定を記録',          note: '切り替え前の状態をメモしておく', critical: true, conditions: ['server:own'] },
+        // 既存のまま
+        { id: 'server_existing_php', label: '既存サーバーのPHPバージョン確認',      note: 'WordPress・プラグインのバージョンと互換性を確認', conditions: ['server:existing'] },
       ]},
       { label: 'メールサーバー（公開4週前目安）', items: [
         // 新規
@@ -433,8 +429,8 @@ const PHASES = [
         { id: 'email_mx_plan',           label: 'MXレコードの設定計画',                   note: '使用するメールサーバーのMXレコード値を確認・記録', critical: true, conditions: ['mail:new'] },
         { id: 'email_spf_dkim',          label: 'SPF・DKIM設定の計画',                    note: '迷惑メール対策。設定値をサーバー管理者に確認', conditions: ['mail:new'] },
         // 既存継続 or Webサーバー切り替え時（ネームサーバー変更でMXに影響するため）
-        { id: 'email_mx_backup',         label: '現在のMXレコード設定を必ず記録',         note: 'ネームサーバー切り替え時にメールが止まらないよう事前に記録必須', critical: true, conditions: ['mail:existing', 'server:own', 'server:migrate'] },
-        { id: 'email_test_before',       label: '切り替え前のメール送受信テスト',         note: '移行前にメール環境が正常であることを確認', conditions: ['mail:existing', 'server:migrate'] },
+        { id: 'email_mx_backup',         label: '現在のMXレコード設定を必ず記録',         note: 'ネームサーバー切り替え時にメールが止まらないよう事前に記録必須', critical: true, conditions: ['mail:existing', 'server:own'] },
+        { id: 'email_test_before',       label: '切り替え前のメール送受信テスト',         note: '移行前にメール環境が正常であることを確認', conditions: ['mail:existing', 'server:own'] },
       ]},
     ]
   },

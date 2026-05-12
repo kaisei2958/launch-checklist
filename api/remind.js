@@ -33,22 +33,20 @@ const ALL_ITEMS = [
   { id: 'domain_registrar',        label: 'ドメイン管理会社へのアクセス確認',       dueBy: 28, conditions: ['domain:existing'] },
   // ドメイン - 共通
   { id: 'domain_whois',            label: 'ドメイン認証・所有者情報の確認',         dueBy: 35 },
-  // Webサーバー - 新規 or 移行
-  { id: 'server_plan',             label: '本番サーバーの選定・候補比較',           dueBy: 35, conditions: ['server:own', 'server:migrate'] },
-  { id: 'server_contract',         label: '本番サーバーの契約',                     dueBy: 28, conditions: ['server:own', 'server:migrate'] },
-  { id: 'server_old_backup',       label: '旧サーバーのデータ・DB完全バックアップ', dueBy: 28, conditions: ['server:migrate'] },
-  // Webサーバー - 既存継続
-  { id: 'server_php_check',        label: 'サーバーのPHPバージョン・スペック確認', dueBy: 14, conditions: ['server:existing'] },
-  // Webサーバー - 新規 or 移行
-  { id: 'ssl_plan',                label: 'SSL証明書の種類・取得方法の確認',         dueBy: 28, conditions: ['server:own', 'server:migrate'] },
-  { id: 'nameserver_record',       label: '現在のネームサーバー設定を記録',          dueBy: 14, conditions: ['server:own', 'server:migrate'] },
+  // Webサーバー - 自社移設
+  { id: 'server_old_backup',       label: '旧サーバーのデータ・DB完全バックアップ', dueBy: 28, conditions: ['server:own'] },
+  { id: 'server_php_check',        label: '自社サーバーのPHPバージョン・スペック確認', dueBy: 21, conditions: ['server:own'] },
+  { id: 'ssl_plan',                label: 'SSL証明書の設定確認',                    dueBy: 28, conditions: ['server:own'] },
+  { id: 'nameserver_record',       label: '現在のネームサーバー設定を記録',          dueBy: 14, conditions: ['server:own'] },
+  // Webサーバー - 既存のまま
+  { id: 'server_existing_php',     label: '既存サーバーのPHPバージョン確認',        dueBy: 14, conditions: ['server:existing'] },
   // メールサーバー - 新規
   { id: 'email_plan',              label: 'メールアカウントの設計・アドレス決定',   dueBy: 28, conditions: ['mail:new'] },
   { id: 'email_mx_plan',           label: 'MXレコードの設定計画',                   dueBy: 28, conditions: ['mail:new'] },
   { id: 'email_spf_dkim',          label: 'SPF・DKIM設定の計画',                    dueBy: 21, conditions: ['mail:new'] },
   // メールサーバー - 既存継続
-  { id: 'email_mx_backup',         label: '現在のMXレコード設定を必ず記録',         dueBy: 14, conditions: ['mail:existing', 'server:own', 'server:migrate'] },
-  { id: 'email_test_before',       label: '切り替え前のメール送受信テスト',         dueBy: 7,  conditions: ['mail:existing', 'server:migrate'] },
+  { id: 'email_mx_backup',         label: '現在のMXレコード設定を必ず記録',         dueBy: 14, conditions: ['mail:existing', 'server:own'] },
+  { id: 'email_test_before',       label: '切り替え前のメール送受信テスト',         dueBy: 7,  conditions: ['mail:existing', 'server:own'] },
   // 1週間前
   { id: 'dev_freeze',        label: 'コンテンツ・デザインの最終確定',           dueBy: 7 },
   { id: 'plugin_check',      label: 'プラグインの動作確認・更新',               dueBy: 7 },
