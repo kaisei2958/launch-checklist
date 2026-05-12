@@ -2,7 +2,7 @@ export const config = { maxDuration: 30 }
 
 const SUPABASE_URL = 'https://ykfiydyfmtypndzrgiow.supabase.co'
 const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InlrZml5ZHlmbXR5cG5kenJnaW93Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzg1NTQ4NjYsImV4cCI6MjA5NDEzMDg2Nn0.DA8uZn9jE7t3C_ntE58vhOw8_SieKbHXc2Zjwx7RzGw'
-const APP_URL = 'https://launch-checklist-psi.vercel.app'
+const APP_URL = process.env.APP_URL || 'https://launch-checklist-psi.vercel.app'
 
 // 各項目に「いつまでにやるべきか（公開N日前）」を定義
 // dueBy: この日数前までに完了推奨
