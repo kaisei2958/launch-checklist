@@ -93,7 +93,7 @@ export default async function handler(req, res) {
     detail: [hasGTM && 'GTM 検出', hasGA4 && 'GA4 検出'].filter(Boolean).join('、') || 'GA/GTM タグが見つかりません'
   }
 
-  // 8. フォーム検出（HTMLタグ + 主要プラグイン・外部フォーム）
+  // 8. フォーム検出 + 構造分析
   const formTags   = (html.match(/<form[\s\n\r>]/gi) || []).length
   const hasCF7     = /wpcf7-form|contact-form-7/i.test(html)
   const hasGravity = /gform_wrapper|gravityform/i.test(html)
@@ -110,11 +110,105 @@ export default async function handler(req, res) {
     hasOther   && '外部フォーム埋め込み',
   ].filter(Boolean)
 
+  // 構造分析（最初のフォーム）
+  const firstForm = html.match(/<form[^>]*>([\s\S]*?)<\/form>/i)?.[0] || ''
+  const hasEmailField   = /<input[^>]+type=["']email["']/i.test(firstForm)
+  const requiredCount   = (firstForm.match(/\brequired\b/gi) || []).length
+  const hasNonce        = /_wpnonce|nonce/i.test(firstForm)
+  const hasRecaptcha    = /g-recaptcha|recaptcha/i.test(html)
+  const structureDetail = detected.length > 0
+    ? [
+        `検出: ${detected.join('、')}`,
+        hasEmailField ? 'メール欄あり' : 'メール欄なし',
+        `必須項目 ${requiredCount} 件`,
+        hasNonce ? 'nonce保護あり' : 'nonce未確認',
+        hasRecaptcha ? 'reCAPTCHA検出' : '',
+      ].filter(Boolean).join(' ／ ')
+    : 'フォームが見つかりません（JS動的生成の場合は手動確認が必要です）'
+
   results.forms = {
     ok: detected.length > 0 ? true : null,
-    detail: detected.length > 0
-      ? `${detected.join('、')} を検出（動作確認は手動で実施してください）`
-      : 'フォームが見つかりません（JS で動的生成している場合は手動確認が必要です）'
+    detail: structureDetail
+  }
+
+  // 9b. フォーム動作テスト（CF7のみ: 無効メールでバリデーション応答を確認）
+  if (hasCF7) {
+    const cf7Id = (
+      html.match(/class=["'][^"']*wpcf7[^"']*["'][^>]*data-id=["'](\d+)["']/i) ||
+      html.match(/data-id=["'](\d+)["'][^>]*class=["'][^"']*wpcf7/i) ||
+      html.match(/<input[^>]+name=["']_wpcf7["'][^>]+value=["'](\d+)["']/i)
+    )?.[1]
+
+    const cf7Nonce = (
+      html.match(/"nonce"\s*:\s*"([a-f0-9]+)"/i) ||
+      html.match(/wpcf7_nonce["'\s:]+["']([a-f0-9]+)["']/i)
+    )?.[1]
+
+    if (cf7Id) {
+      try {
+        const endpoint = httpsUrl.replace(/\/$/, '') +
+          `/wp-json/contact-form-7/v1/contact-forms/${cf7Id}/feedback`
+        const body = new FormData()
+        body.append('_wpcf7', cf7Id)
+        body.append('_wpcf7_version', '5.0')
+        body.append('_wpcf7_locale', 'ja')
+        body.append('_wpcf7_unit_tag', `wpcf7-f${cf7Id}-p1-o1`)
+        body.append('_wpcf7_container_post', '0')
+        if (cf7Nonce) body.append('_wpnonce', cf7Nonce)
+        body.append('your-name', 'テスト確認')
+        body.append('your-email', 'invalid@@test')   // 無効メール → バリデーションエラー狙い
+        body.append('your-message', 'テスト')
+
+        const r = await fetch(endpoint, {
+          method: 'POST', body,
+          headers: { 'User-Agent': UA, 'Referer': httpsUrl },
+          signal: AbortSignal.timeout(8000)
+        })
+        const data = await r.json().catch(() => ({}))
+
+        if (data.status === 'validation_failed') {
+          results.form_behavior = {
+            ok: true,
+            detail: 'CF7 バリデーション動作を確認（無効メールで検証、実際のメールは未送信）'
+          }
+        } else if (data.status === 'mail_sent') {
+          results.form_behavior = {
+            ok: true,
+            detail: 'CF7 フォーム送信処理が正常に動作しています'
+          }
+        } else if (data.status === 'spam') {
+          results.form_behavior = {
+            ok: null,
+            detail: `CF7 スパム判定により処理されました（reCAPTCHA / Akismet が有効）`
+          }
+        } else {
+          results.form_behavior = {
+            ok: null,
+            detail: `CF7 REST API 応答: ${data.status || `HTTP ${r.status}`}${cf7Nonce ? '' : '（nonce 取得不可のためテスト精度低め）'}`
+          }
+        }
+      } catch (e) {
+        results.form_behavior = {
+          ok: null,
+          detail: `CF7 動作テスト失敗: ${e.message}`
+        }
+      }
+    } else {
+      results.form_behavior = {
+        ok: null,
+        detail: 'CF7 を検出しましたがフォームIDが取得できませんでした（手動確認推奨）'
+      }
+    }
+  } else if (hasGravity || hasWPForms) {
+    results.form_behavior = {
+      ok: null,
+      detail: `${hasGravity ? 'Gravity Forms' : 'WPForms'} は自動送信テスト非対応のため手動確認が必要です`
+    }
+  } else if (hasHubspot || hasOther) {
+    results.form_behavior = {
+      ok: null,
+      detail: '外部フォーム（HubSpot / Typeform 等）は自動テスト非対応のため手動確認が必要です'
+    }
   }
 
   // 9. 内部リンク切れ（最大15件）
