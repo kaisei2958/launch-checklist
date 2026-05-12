@@ -144,11 +144,9 @@
     .settings-bar-hint { font-size: 11px; color: #bbb; flex: 1; }
     .settings-groups { display: flex; gap: 24px; flex-wrap: wrap; }
     .settings-group-label { font-size: 11px; font-weight: 700; color: #999; margin-bottom: 6px; }
-    .settings-options { display: flex; gap: 6px; flex-wrap: wrap; }
-    .settings-opt input[type="radio"] { display: none; }
-    .settings-opt label { font-size: 12px; padding: 4px 12px; border-radius: 20px; border: 1.5px solid #e5e7eb; cursor: pointer; color: #555; background: white; white-space: nowrap; display: block; }
-    .settings-opt input[type="radio"]:checked + label { border-color: #4f46e5; background: #eef2ff; color: #4f46e5; font-weight: 600; }
-    .settings-opt label:hover { border-color: #c7d2fe; background: #f5f3ff; }
+    .settings-select { font-size: 13px; padding: 6px 10px; border: 1.5px solid #e5e7eb; border-radius: 8px; background: white; color: #333; cursor: pointer; min-width: 180px; }
+    .settings-select:focus { outline: none; border-color: #4f46e5; }
+    .settings-select option { color: #333; }
 
     /* MEMO BAR */
     .memo-bar { background: white; border-bottom: 1px solid #e5e7eb; padding: 10px 32px; }
@@ -332,27 +330,30 @@
           <div class="settings-groups">
             <div>
               <div class="settings-group-label">ドメイン</div>
-              <div class="settings-options">
-                <span class="settings-opt"><input type="radio" name="domain_type" id="dt_new"      value="new"      onchange="onSettingsChange()"><label for="dt_new">🆕 新規取得</label></span>
-                <span class="settings-opt"><input type="radio" name="domain_type" id="dt_transfer" value="transfer" onchange="onSettingsChange()"><label for="dt_transfer">🔄 移管</label></span>
-                <span class="settings-opt"><input type="radio" name="domain_type" id="dt_existing" value="existing" onchange="onSettingsChange()"><label for="dt_existing">♻️ 既存流用</label></span>
-              </div>
+              <select id="sel_domain_type" class="settings-select" onchange="onSettingsChange()">
+                <option value="">— 選択してください —</option>
+                <option value="new">🆕 新規取得</option>
+                <option value="transfer">🔄 移管</option>
+                <option value="existing">♻️ 既存流用</option>
+              </select>
             </div>
             <div>
               <div class="settings-group-label">Webサーバー</div>
-              <div class="settings-options">
-                <span class="settings-opt"><input type="radio" name="server_type" id="st_new"      value="new"      onchange="onSettingsChange()"><label for="st_new">🆕 新規契約</label></span>
-                <span class="settings-opt"><input type="radio" name="server_type" id="st_migrate"  value="migrate"  onchange="onSettingsChange()"><label for="st_migrate">🔄 移行・乗り換え</label></span>
-                <span class="settings-opt"><input type="radio" name="server_type" id="st_existing" value="existing" onchange="onSettingsChange()"><label for="st_existing">♻️ 既存継続</label></span>
-              </div>
+              <select id="sel_server_type" class="settings-select" onchange="onSettingsChange()">
+                <option value="">— 選択してください —</option>
+                <option value="new">🆕 新規契約</option>
+                <option value="migrate">🔄 移行・乗り換え</option>
+                <option value="existing">♻️ 既存継続</option>
+              </select>
             </div>
             <div>
               <div class="settings-group-label">メールサーバー</div>
-              <div class="settings-options">
-                <span class="settings-opt"><input type="radio" name="mail_type" id="mt_new"      value="new"      onchange="onSettingsChange()"><label for="mt_new">🆕 新規設定</label></span>
-                <span class="settings-opt"><input type="radio" name="mail_type" id="mt_existing" value="existing" onchange="onSettingsChange()"><label for="mt_existing">♻️ 既存継続</label></span>
-                <span class="settings-opt"><input type="radio" name="mail_type" id="mt_none"     value="none"     onchange="onSettingsChange()"><label for="mt_none">➖ なし</label></span>
-              </div>
+              <select id="sel_mail_type" class="settings-select" onchange="onSettingsChange()">
+                <option value="">— 選択してください —</option>
+                <option value="new">🆕 新規設定</option>
+                <option value="existing">♻️ 既存継続</option>
+                <option value="none">➖ なし</option>
+              </select>
             </div>
           </div>
         </div>
@@ -804,14 +805,9 @@ window._toggleItem = async function(itemId) {
 function syncSettings() {
   const proj = projects[currentId]
   if (!proj) return
-  const prefixMap = { domain_type: 'dt', server_type: 'st', mail_type: 'mt' }
-  Object.entries(prefixMap).forEach(([field, prefix]) => {
-    document.querySelectorAll(`input[name="${field}"]`).forEach(r => r.checked = false)
-    if (proj[field]) {
-      const el = document.getElementById(`${prefix}_${proj[field]}`)
-      if (el) el.checked = true
-    }
-  })
+  document.getElementById('sel_domain_type').value = proj.domain_type || ''
+  document.getElementById('sel_server_type').value = proj.server_type || ''
+  document.getElementById('sel_mail_type').value   = proj.mail_type   || ''
   const allSet = proj.domain_type && proj.server_type && proj.mail_type
   document.getElementById('settingsHint').textContent = allSet
     ? '絞り込み中 ▸'
@@ -829,9 +825,11 @@ window.toggleSettings = function() {
 window.onSettingsChange = function() {
   if (!currentId) return
   const proj = projects[currentId]
-  proj.domain_type = document.querySelector('input[name="domain_type"]:checked')?.value || null
-  proj.server_type = document.querySelector('input[name="server_type"]:checked')?.value || null
-  proj.mail_type   = document.querySelector('input[name="mail_type"]:checked')?.value   || null
+  proj.domain_type = document.getElementById('sel_domain_type').value || null
+  proj.server_type = document.getElementById('sel_server_type').value || null
+  proj.mail_type   = document.getElementById('sel_mail_type').value   || null
+  const allSet = proj.domain_type && proj.server_type && proj.mail_type
+  document.getElementById('settingsHint').textContent = allSet ? '絞り込み中 ▸' : '選択するとチェックリストが絞り込まれます ▸'
   renderChecklist()
   updateProgress()
   clearTimeout(metaSaveTimer)
