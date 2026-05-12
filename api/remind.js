@@ -190,5 +190,11 @@ export default async function handler(req, res) {
     sent.push({ project: project.name, daysUntil, overdue: overdue.length, next: nextActions.length })
   }
 
+  // DNS 監視中の案件をまとめてチェック（日次フォールバック）
+  try {
+    const appUrl = APP_URL
+    await fetch(`${appUrl}/api/dns-check`, { signal: AbortSignal.timeout(25000) })
+  } catch (_) {}
+
   return res.json({ sent: sent.length, results: sent })
 }

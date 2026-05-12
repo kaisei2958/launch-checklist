@@ -124,6 +124,18 @@
     .cri-label { font-weight: 600; color: #333; line-height: 1.4; }
     .cri-detail { font-size: 11px; color: #666; margin-top: 2px; line-height: 1.5; word-break: break-all; }
 
+    /* DNS MONITORING */
+    .dns-status { margin-top: 6px; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+    .dns-badge { font-size: 11px; font-weight: 600; padding: 3px 10px; border-radius: 20px; }
+    .dns-badge.monitoring { background: #eff6ff; color: #2563eb; border: 1px solid #bfdbfe; }
+    .dns-badge.confirmed { background: #f0fdf4; color: #16a34a; border: 1px solid #bbf7d0; }
+    .btn-dns { font-size: 11px; font-weight: 600; padding: 4px 12px; border-radius: 6px; border: none; cursor: pointer; }
+    .btn-dns-start { background: #f0f9ff; color: #0369a1; border: 1px solid #bae6fd; }
+    .btn-dns-start:hover { background: #e0f2fe; }
+    .btn-dns-now { background: #eff6ff; color: #2563eb; border: 1px solid #bfdbfe; }
+    .btn-dns-now:hover:not(:disabled) { background: #dbeafe; }
+    .btn-dns-now:disabled { opacity: 0.4; cursor: default; }
+
     /* MEMO BAR */
     .memo-bar { background: white; border-bottom: 1px solid #e5e7eb; padding: 10px 32px; }
     .memo-bar label { font-size: 11px; font-weight: 600; color: #999; display: block; margin-bottom: 4px; }
@@ -510,6 +522,8 @@ function dbRowToProject(p) {
     id: p.id, name: p.name, url: p.url || '',
     date: p.launch_date || '', owner: p.owner || '',
     memo: p.memo || '',
+    dns_monitoring: p.dns_monitoring || false,
+    dns_confirmed_at: p.dns_confirmed_at || null,
     createdAt: new Date(p.created_at).getTime(), checks: {}
   }
 }
@@ -536,7 +550,7 @@ function subscribeRealtime() {
     .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'projects' }, payload => {
       const p = payload.new
       if (!projects[p.id]) return
-      Object.assign(projects[p.id], { name: p.name, url: p.url || '', date: p.launch_date || '', owner: p.owner || '', memo: p.memo || '' })
+      Object.assign(projects[p.id], { name: p.name, url: p.url || '', date: p.launch_date || '', owner: p.owner || '', memo: p.memo || '', dns_monitoring: p.dns_monitoring || false, dns_confirmed_at: p.dns_confirmed_at || null })
       renderSidebar()
       if (p.id === currentId) {
         document.getElementById('editName').value = p.name
@@ -638,12 +652,25 @@ function renderChecklist() {
         phaseTotal++
         if (checked) phaseDone++
         const critTag = item.critical ? `<span class="tag tag-critical">重要</span>` : ''
+        let extraHtml = ''
+        if (item.id === 'ns_switch' && checked) {
+          const p = projects[currentId]
+          if (p.dns_confirmed_at) {
+            const dt = new Date(p.dns_confirmed_at).toLocaleString('ja-JP', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' })
+            extraHtml = `<div class="dns-status"><span class="dns-badge confirmed">✅ DNS伝播確認済み（${dt}）</span></div>`
+          } else if (p.dns_monitoring) {
+            extraHtml = `<div class="dns-status"><span class="dns-badge monitoring">🔵 監視中</span><button class="btn-dns btn-dns-now" id="dnsNowBtn" onclick="event.stopPropagation();checkDnsNow()">今すぐ確認</button></div>`
+          } else {
+            extraHtml = `<div class="dns-status"><button class="btn-dns btn-dns-start" onclick="event.stopPropagation();startDnsMonitoring()">DNS監視を開始</button></div>`
+          }
+        }
         sectionsHtml += `
           <div class="check-item ${checked ? 'done' : ''}" onclick="window._toggleItem('${item.id}')">
             <input type="checkbox" ${checked ? 'checked' : ''} onclick="event.stopPropagation(); window._toggleItem('${item.id}')" />
             <div class="text">
               <div class="label">${item.label}${critTag}</div>
               ${item.note ? `<div class="note">${item.note}</div>` : ''}
+              ${extraHtml}
             </div>
           </div>`
       })
@@ -677,6 +704,36 @@ window._toggleItem = async function(itemId) {
   updateProgress()
   renderSidebar()
   await upsertCheck(currentId, itemId, newVal)
+}
+
+window.startDnsMonitoring = async function() {
+  if (!currentId) return
+  await supabase.from('projects').update({ dns_monitoring: true }).eq('id', currentId)
+  projects[currentId].dns_monitoring = true
+  renderChecklist()
+  showToast('DNS監視を開始しました。伝播を確認したらSlackに通知します')
+}
+
+window.checkDnsNow = async function() {
+  const btn = document.getElementById('dnsNowBtn')
+  if (btn) { btn.disabled = true; btn.textContent = '確認中...' }
+  try {
+    const res = await fetch(`/api/dns-check?project_id=${currentId}`)
+    const data = await res.json()
+    const result = data.results?.[0]
+    if (result?.status === 'confirmed') {
+      projects[currentId].dns_monitoring = false
+      projects[currentId].dns_confirmed_at = new Date().toISOString()
+      renderChecklist()
+      showToast('DNS伝播を確認しました！')
+    } else {
+      showToast('まだ伝播していません。しばらく待って再確認してください')
+      if (btn) { btn.disabled = false; btn.textContent = '今すぐ確認' }
+    }
+  } catch(e) {
+    showToast('確認に失敗しました')
+    if (btn) { btn.disabled = false; btn.textContent = '今すぐ確認' }
+  }
 }
 
 function updateProgress() {
