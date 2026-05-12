@@ -47,8 +47,8 @@ const ALL_ITEMS = [
   { id: 'email_mx_plan',           label: 'MXレコードの設定計画',                   dueBy: 28, conditions: ['mail:new'] },
   { id: 'email_spf_dkim',          label: 'SPF・DKIM設定の計画',                    dueBy: 21, conditions: ['mail:new'] },
   // メールサーバー - 既存継続
-  { id: 'email_mx_backup',         label: '現在のMXレコード設定を必ず記録',         dueBy: 14, conditions: ['mail:existing'] },
-  { id: 'email_test_before',       label: '切り替え前のメール送受信テスト',         dueBy: 7,  conditions: ['mail:existing'] },
+  { id: 'email_mx_backup',         label: '現在のMXレコード設定を必ず記録',         dueBy: 14, conditions: ['mail:existing', 'server:new', 'server:migrate'] },
+  { id: 'email_test_before',       label: '切り替え前のメール送受信テスト',         dueBy: 7,  conditions: ['mail:existing', 'server:migrate'] },
   // 1週間前
   { id: 'dev_freeze',        label: 'コンテンツ・デザインの最終確定',           dueBy: 7 },
   { id: 'plugin_check',      label: 'プラグインの動作確認・更新',               dueBy: 7 },

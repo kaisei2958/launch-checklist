@@ -431,9 +431,9 @@ const PHASES = [
         { id: 'email_plan',              label: 'メールアカウントの設計・アドレス決定',   note: 'info@ / contact@ などのアドレス構成を確定', conditions: ['mail:new'] },
         { id: 'email_mx_plan',           label: 'MXレコードの設定計画',                   note: '使用するメールサーバーのMXレコード値を確認・記録', critical: true, conditions: ['mail:new'] },
         { id: 'email_spf_dkim',          label: 'SPF・DKIM設定の計画',                    note: '迷惑メール対策。設定値をサーバー管理者に確認', conditions: ['mail:new'] },
-        // 既存継続
-        { id: 'email_mx_backup',         label: '現在のMXレコード設定を必ず記録',         note: 'DNS切り替え時にメールが止まらないよう事前に記録必須', critical: true, conditions: ['mail:existing'] },
-        { id: 'email_test_before',       label: '切り替え前のメール送受信テスト',         note: '現在のメール環境が正常に動作していることを確認', conditions: ['mail:existing'] },
+        // 既存継続 or Webサーバー切り替え時（ネームサーバー変更でMXに影響するため）
+        { id: 'email_mx_backup',         label: '現在のMXレコード設定を必ず記録',         note: 'ネームサーバー切り替え時にメールが止まらないよう事前に記録必須', critical: true, conditions: ['mail:existing', 'server:new', 'server:migrate'] },
+        { id: 'email_test_before',       label: '切り替え前のメール送受信テスト',         note: '移行前にメール環境が正常であることを確認', conditions: ['mail:existing', 'server:migrate'] },
       ]},
     ]
   },
