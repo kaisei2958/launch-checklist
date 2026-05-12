@@ -93,11 +93,28 @@ export default async function handler(req, res) {
     detail: [hasGTM && 'GTM 検出', hasGA4 && 'GA4 検出'].filter(Boolean).join('、') || 'GA/GTM タグが見つかりません'
   }
 
-  // 8. フォーム数
-  const formCount = (html.match(/<form[\s>]/gi) || []).length
+  // 8. フォーム検出（HTMLタグ + 主要プラグイン・外部フォーム）
+  const formTags   = (html.match(/<form[\s\n\r>]/gi) || []).length
+  const hasCF7     = /wpcf7-form|contact-form-7/i.test(html)
+  const hasGravity = /gform_wrapper|gravityform/i.test(html)
+  const hasWPForms = /wpforms-form/i.test(html)
+  const hasHubspot = /hbspt\.forms|hs-form-iframe/i.test(html)
+  const hasOther   = /typeform|jotform|formstack/i.test(html)
+
+  const detected = [
+    formTags > 0 && `HTMLフォーム ${formTags} 件`,
+    hasCF7     && 'Contact Form 7',
+    hasGravity && 'Gravity Forms',
+    hasWPForms && 'WPForms',
+    hasHubspot && 'HubSpot フォーム',
+    hasOther   && '外部フォーム埋め込み',
+  ].filter(Boolean)
+
   results.forms = {
-    ok: true,
-    detail: formCount > 0 ? `${formCount} 件のフォームを検出（動作確認は手動で実施してください）` : 'フォームが見つかりません'
+    ok: detected.length > 0 ? true : null,
+    detail: detected.length > 0
+      ? `${detected.join('、')} を検出（動作確認は手動で実施してください）`
+      : 'フォームが見つかりません（JS で動的生成している場合は手動確認が必要です）'
   }
 
   // 9. 内部リンク切れ（最大15件）
