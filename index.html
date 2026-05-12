@@ -1,0 +1,761 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>サイト公開チェックリスト</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Hiragino Sans", "Hiragino Kaku Gothic ProN", Meiryo, sans-serif;
+      background: #f0f2f5; color: #333; min-height: 100vh;
+    }
+    .app { display: flex; min-height: 100vh; }
+
+    /* SIDEBAR */
+    .sidebar {
+      width: 280px; background: #1a1a2e; color: white;
+      display: flex; flex-direction: column; flex-shrink: 0;
+      position: fixed; top: 0; left: 0; bottom: 0; overflow: hidden; z-index: 100;
+    }
+    .sidebar-header { padding: 20px 20px 16px; border-bottom: 1px solid rgba(255,255,255,0.08); }
+    .sidebar-header h1 { font-size: 16px; font-weight: 700; }
+    .sidebar-header p { font-size: 12px; color: #888; margin-top: 3px; }
+    .live-badge {
+      display: inline-flex; align-items: center; gap: 5px;
+      font-size: 11px; color: #4ade80; margin-top: 6px;
+    }
+    .live-dot {
+      width: 6px; height: 6px; border-radius: 50%; background: #4ade80;
+      animation: pulse 2s infinite;
+    }
+    @keyframes pulse {
+      0%, 100% { opacity: 1; } 50% { opacity: 0.3; }
+    }
+    .sidebar-new { margin: 12px 16px; }
+    .btn-new {
+      width: 100%; padding: 10px; background: #4f46e5; color: white;
+      border: none; border-radius: 8px; font-size: 14px; font-weight: 600;
+      cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 6px;
+    }
+    .btn-new:hover { background: #4338ca; }
+    .project-list { flex: 1; overflow-y: auto; padding: 4px 8px 16px; }
+    .project-list-label {
+      font-size: 10px; font-weight: 700; color: #666;
+      letter-spacing: 0.1em; text-transform: uppercase; padding: 12px 8px 6px;
+    }
+    .project-item {
+      padding: 10px 12px; border-radius: 8px; cursor: pointer;
+      margin-bottom: 2px; transition: background 0.15s;
+    }
+    .project-item:hover { background: rgba(255,255,255,0.07); }
+    .project-item.active { background: rgba(255,255,255,0.12); }
+    .project-item-name { font-size: 14px; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .project-item-meta { font-size: 11px; color: #888; margin-top: 3px; display: flex; align-items: center; gap: 8px; }
+    .project-item-bar { flex: 1; background: rgba(255,255,255,0.1); border-radius: 4px; height: 4px; overflow: hidden; }
+    .project-item-bar-fill { height: 100%; background: #4caf50; border-radius: 4px; transition: width 0.3s; }
+    .project-item-pct { font-size: 11px; color: #888; width: 30px; text-align: right; }
+
+    /* MAIN */
+    .main { margin-left: 280px; flex: 1; display: flex; flex-direction: column; min-height: 100vh; }
+
+    /* TOPBAR */
+    .topbar {
+      background: white; border-bottom: 1px solid #e5e7eb;
+      padding: 14px 32px; display: flex; align-items: center; gap: 16px;
+      position: sticky; top: 0; z-index: 50;
+    }
+    .topbar-title { font-size: 18px; font-weight: 700; flex: 1; }
+    .topbar-title input {
+      font-size: 18px; font-weight: 700; border: none; outline: none;
+      width: 100%; background: transparent;
+    }
+    .topbar-title input:focus { text-decoration: underline; }
+    .progress-wrap { display: flex; align-items: center; gap: 10px; }
+    .progress-bar-bg { width: 120px; height: 8px; background: #e5e7eb; border-radius: 4px; overflow: hidden; }
+    .progress-bar-fg { height: 100%; background: #4caf50; border-radius: 4px; transition: width 0.3s; }
+    .progress-text { font-size: 13px; color: #888; white-space: nowrap; }
+
+    /* META BAR */
+    .meta-bar {
+      background: white; border-bottom: 1px solid #e5e7eb;
+      padding: 12px 32px; display: flex; flex-wrap: wrap; gap: 16px; align-items: flex-end;
+    }
+    .meta-field { display: flex; flex-direction: column; gap: 3px; }
+    .meta-field label { font-size: 11px; font-weight: 600; color: #999; }
+    .meta-field input {
+      border: 1.5px solid #e5e7eb; border-radius: 6px;
+      padding: 5px 10px; font-size: 13px; min-width: 160px;
+    }
+    .meta-field input:focus { outline: none; border-color: #4f46e5; }
+    .meta-actions { display: flex; gap: 8px; align-items: flex-end; margin-left: auto; }
+
+    .btn { padding: 7px 16px; border-radius: 7px; border: none; cursor: pointer; font-size: 13px; font-weight: 600; white-space: nowrap; }
+    .btn-primary { background: #1a1a2e; color: white; }
+    .btn-primary:hover { background: #2d2d4e; }
+    .btn-outline { background: white; border: 1.5px solid #ddd; color: #555; }
+    .btn-outline:hover { border-color: #999; }
+    .btn-danger { background: white; border: 1.5px solid #fcc; color: #c00; }
+    .btn-danger:hover { background: #fee; }
+
+    /* CHECKLIST */
+    .checklist-area { padding: 24px 32px; flex: 1; }
+    .phase { background: white; border-radius: 12px; margin-bottom: 16px; box-shadow: 0 1px 4px rgba(0,0,0,0.06); overflow: hidden; }
+    .phase-header {
+      padding: 14px 20px; display: flex; align-items: center; gap: 10px;
+      cursor: pointer; user-select: none; border-bottom: 1px solid #f3f4f6;
+    }
+    .phase-header:hover { background: #fafafa; }
+    .phase-icon { font-size: 18px; }
+    .phase-title { font-size: 15px; font-weight: 700; flex: 1; }
+    .phase-count { font-size: 12px; background: #f3f4f6; border-radius: 20px; padding: 2px 10px; color: #666; }
+    .phase-count.done { background: #dcfce7; color: #16a34a; }
+    .phase-toggle { color: #bbb; transition: transform 0.2s; font-size: 14px; }
+    .phase.collapsed .phase-toggle { transform: rotate(-90deg); }
+    .phase.collapsed .phase-body { display: none; }
+    .phase-body { padding: 6px 0; }
+    .section-label {
+      font-size: 11px; font-weight: 700; color: #bbb;
+      letter-spacing: 0.08em; text-transform: uppercase; padding: 12px 20px 4px;
+    }
+    .check-item {
+      display: flex; align-items: flex-start; gap: 10px;
+      padding: 9px 20px; cursor: pointer; transition: background 0.1s;
+    }
+    .check-item:hover { background: #f9fafb; }
+    .check-item input[type="checkbox"] { width: 16px; height: 16px; margin-top: 3px; flex-shrink: 0; accent-color: #4f46e5; cursor: pointer; }
+    .check-item .text { flex: 1; }
+    .check-item .label { font-size: 14px; line-height: 1.5; }
+    .check-item .note { font-size: 12px; color: #9ca3af; margin-top: 1px; line-height: 1.5; }
+    .check-item.done .label { color: #d1d5db; text-decoration: line-through; }
+    .check-item.done .note { color: #e5e7eb; }
+    .tag { display: inline-block; font-size: 10px; font-weight: 700; padding: 1px 6px; border-radius: 4px; margin-left: 5px; vertical-align: middle; }
+    .tag-critical { background: #fef2f2; color: #dc2626; }
+
+    /* EMPTY / LOADING */
+    .empty-state {
+      flex: 1; display: flex; flex-direction: column;
+      align-items: center; justify-content: center;
+      padding: 80px 32px; color: #aaa; text-align: center;
+    }
+    .empty-state .icon { font-size: 64px; margin-bottom: 16px; }
+    .empty-state h2 { font-size: 20px; font-weight: 700; color: #555; margin-bottom: 8px; }
+    .empty-state p { font-size: 14px; line-height: 1.7; }
+    .empty-state .btn-new-lg {
+      margin-top: 24px; padding: 12px 28px; background: #4f46e5; color: white;
+      border: none; border-radius: 10px; font-size: 15px; font-weight: 600; cursor: pointer;
+    }
+    .empty-state .btn-new-lg:hover { background: #4338ca; }
+
+    .loading-overlay {
+      position: fixed; inset: 0; background: rgba(255,255,255,0.7);
+      display: flex; align-items: center; justify-content: center; z-index: 500;
+    }
+    .loading-overlay.hidden { display: none; }
+    .spinner {
+      width: 36px; height: 36px; border: 3px solid #e5e7eb;
+      border-top-color: #4f46e5; border-radius: 50%;
+      animation: spin 0.7s linear infinite;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* MODAL */
+    .modal-overlay {
+      position: fixed; inset: 0; background: rgba(0,0,0,0.4);
+      display: flex; align-items: center; justify-content: center; z-index: 200;
+    }
+    .modal-overlay.hidden { display: none; }
+    .modal {
+      background: white; border-radius: 14px; padding: 28px;
+      width: 440px; max-width: calc(100vw - 32px);
+      box-shadow: 0 20px 60px rgba(0,0,0,0.2);
+    }
+    .modal h2 { font-size: 17px; font-weight: 700; margin-bottom: 20px; }
+    .modal label { display: block; font-size: 12px; font-weight: 600; color: #888; margin-bottom: 5px; }
+    .modal input {
+      width: 100%; border: 1.5px solid #e5e7eb; border-radius: 8px;
+      padding: 9px 12px; font-size: 14px; margin-bottom: 14px;
+    }
+    .modal input:focus { outline: none; border-color: #4f46e5; }
+    .modal-actions { display: flex; gap: 10px; justify-content: flex-end; margin-top: 4px; }
+
+    /* TOAST */
+    .toast {
+      position: fixed; bottom: 24px; right: 24px;
+      background: #1a1a2e; color: white;
+      padding: 11px 18px; border-radius: 8px;
+      font-size: 13px; opacity: 0; transition: opacity 0.3s; pointer-events: none; z-index: 999;
+    }
+    .toast.show { opacity: 1; }
+
+    @media (max-width: 700px) {
+      .sidebar { width: 220px; }
+      .main { margin-left: 220px; }
+      .topbar, .meta-bar, .checklist-area { padding-left: 16px; padding-right: 16px; }
+    }
+  </style>
+</head>
+<body>
+<div class="app">
+  <aside class="sidebar">
+    <div class="sidebar-header">
+      <h1>公開チェックリスト</h1>
+      <p>WordPress 公開フロー管理</p>
+      <div class="live-badge"><span class="live-dot"></span>リアルタイム同期中</div>
+    </div>
+    <div class="sidebar-new">
+      <button class="btn-new" onclick="openNewModal()">＋ 新規案件</button>
+    </div>
+    <div class="project-list" id="projectList"></div>
+  </aside>
+
+  <main class="main" id="mainArea">
+    <div class="empty-state" id="emptyState">
+      <div class="icon">📋</div>
+      <h2>案件を選択または作成してください</h2>
+      <p>左のメニューから案件を選ぶか、<br>新規案件を作成してチェックリストを開始します。</p>
+      <button class="btn-new-lg" onclick="openNewModal()">＋ 最初の案件を作成</button>
+    </div>
+
+    <div id="projectView" style="display:none; flex-direction:column; min-height:100vh;">
+      <div class="topbar">
+        <div class="topbar-title">
+          <input type="text" id="editName" placeholder="案件名" oninput="onNameInput()" />
+        </div>
+        <div class="progress-wrap">
+          <div class="progress-bar-bg">
+            <div class="progress-bar-fg" id="progressFill" style="width:0%"></div>
+          </div>
+          <span class="progress-text" id="progressText">0 / 0</span>
+        </div>
+      </div>
+      <div class="meta-bar">
+        <div class="meta-field">
+          <label>本番URL</label>
+          <input type="text" id="editUrl" placeholder="https://example.co.jp" oninput="onMetaInput()" />
+        </div>
+        <div class="meta-field">
+          <label>公開予定日</label>
+          <input type="date" id="editDate" oninput="onMetaInput()" />
+        </div>
+        <div class="meta-field">
+          <label>担当者</label>
+          <input type="text" id="editOwner" placeholder="例：山田" oninput="onMetaInput()" />
+        </div>
+        <div class="meta-actions">
+          <button class="btn btn-outline" onclick="exportTxt()">書き出し</button>
+          <button class="btn btn-outline" onclick="uncheckAll()">リセット</button>
+          <button class="btn btn-danger" onclick="deleteProject()">削除</button>
+        </div>
+      </div>
+      <div class="checklist-area" id="checklistArea"></div>
+    </div>
+  </main>
+</div>
+
+<div class="modal-overlay hidden" id="newModal">
+  <div class="modal">
+    <h2>新規案件を作成</h2>
+    <label>案件名 <span style="color:#dc2626">*</span></label>
+    <input type="text" id="newName" placeholder="例：株式会社〇〇 コーポレートサイト" />
+    <label>本番URL</label>
+    <input type="text" id="newUrl" placeholder="https://example.co.jp" />
+    <label>公開予定日</label>
+    <input type="date" id="newDate" />
+    <label>担当者</label>
+    <input type="text" id="newOwner" placeholder="例：山田" />
+    <div class="modal-actions">
+      <button class="btn btn-outline" onclick="closeNewModal()">キャンセル</button>
+      <button class="btn btn-primary" onclick="createProject()">作成</button>
+    </div>
+  </div>
+</div>
+
+<div class="loading-overlay hidden" id="loadingOverlay">
+  <div class="spinner"></div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script type="module">
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
+
+const SUPABASE_URL = 'https://ykfiydyfmtypndzrgiow.supabase.co'
+const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InlrZml5ZHlmbXR5cG5kenJnaW93Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzg1NTQ4NjYsImV4cCI6MjA5NDEzMDg2Nn0.DA8uZn9jE7t3C_ntE58vhOw8_SieKbHXc2Zjwx7RzGw'
+
+const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY)
+
+// ===== チェックリスト定義 =====
+const PHASES = [
+  {
+    id: 'pre_week', icon: '📋', title: '公開1週間前まで',
+    sections: [
+      { label: 'サーバー・ドメイン準備', items: [
+        { id: 'server_contract', label: '本番サーバーの契約・プラン確認', note: '容量・PHPバージョン・メール設定などの要件確認', critical: true },
+        { id: 'domain_contract', label: 'ドメインの取得・契約確認', note: '有効期限・所有者情報を確認' },
+        { id: 'nameserver_record', label: '現在のネームサーバー設定を記録', note: '切り替え前の状態をメモしておく', critical: true },
+        { id: 'ssl_plan', label: 'SSL証明書の発行方法を確認', note: "Let's Encrypt / 有料証明書 / サーバー提供の無料SSL" },
+      ]},
+      { label: '開発環境の最終確認', items: [
+        { id: 'dev_freeze', label: 'コンテンツ・デザインの最終確定', note: '公開1週間前以降は原則変更なし' },
+        { id: 'plugin_check', label: 'プラグインの動作確認・更新', note: '不要なプラグインは無効化または削除' },
+        { id: 'wp_version', label: 'WordPressバージョンと本番PHPの互換性確認', note: '本番サーバーのPHPバージョンと合わせて確認' },
+        { id: 'form_dev', label: 'フォームの送受信テスト（開発環境）', note: '全フォームで実際にメールが届くか確認', critical: true },
+      ]},
+    ]
+  },
+  {
+    id: 'pre_day', icon: '🔧', title: '公開前日まで',
+    sections: [
+      { label: '本番環境への移行', items: [
+        { id: 'db_export', label: '開発環境のDBをエクスポート', note: 'wp_options の siteurl / home を確認してからエクスポート', critical: true },
+        { id: 'files_upload', label: 'WordPressファイル一式を本番サーバーにアップロード', note: 'wp-content/uploads も含めて転送' },
+        { id: 'db_import', label: '本番DBにインポート・接続設定', note: 'wp-config.php の DB情報を本番値に変更', critical: true },
+        { id: 'url_replace', label: 'DB内のURLを本番URLに置換', note: 'Search Replace DB などで実施。http→https の変換も', critical: true },
+        { id: 'wp_config', label: 'wp-config.php の本番設定に変更', note: 'WP_DEBUGをfalseに、テーブルプレフィックスを確認' },
+      ]},
+      { label: '本番環境での動作確認', items: [
+        { id: 'staging_access', label: 'hostsファイルで本番環境を先行確認', note: 'ネームサーバー切り替え前に動作確認できる環境を用意' },
+        { id: 'ssl_install', label: 'SSL証明書のインストール・有効化', note: 'https:// でアクセスできるか確認', critical: true },
+        { id: 'noindex_off', label: '検索エンジンのインデックスを「許可」に変更', note: '設定 > 表示設定 > インデックスのチェックを外す', critical: true },
+        { id: 'permalink', label: 'パーマリンク設定を再保存', note: '移行後は必ず再保存してURLが機能するか確認' },
+        { id: 'admin_pass', label: '管理者パスワードを本番用に変更', note: '開発用の簡易パスワードのまま公開しないこと', critical: true },
+      ]},
+      { label: 'コンテンツ確認', items: [
+        { id: 'typo_check', label: '全ページの誤字・脱字チェック', note: '会社名・住所・電話番号・メールアドレスを特に注意', critical: true },
+        { id: 'link_check', label: 'リンク切れチェック', note: 'Broken Link Checker プラグインまたはオンラインツールで確認' },
+        { id: 'image_check', label: '画像の表示・alt属性確認', note: '画像が全て表示されているか。適切なalt文言があるか' },
+        { id: 'sp_check', label: 'スマートフォン表示確認', note: 'iOS / Android 両方の主要ブラウザで確認' },
+        { id: 'browser_check', label: 'クロスブラウザ確認', note: 'Chrome / Safari / Edge / Firefox で主要ページを確認' },
+        { id: 'design_check', label: 'デザイン崩れ確認', note: '各デバイス・ブラウザでレイアウトが正常か確認' },
+      ]},
+      { label: 'SEO・アナリティクス', items: [
+        { id: 'meta_title', label: '全ページのtitle・descriptionを確認', note: '重複・空欄がないか。キーワードが含まれているか' },
+        { id: 'ga_setup', label: 'Google Analytics / GTM の設定', note: '測定IDが正しいか。計測されているか確認' },
+        { id: 'gsc_setup', label: 'Google Search Console に登録', note: '本番URLで登録。所有権確認まで完了させる' },
+        { id: 'sitemap', label: 'サイトマップの生成・設定確認', note: 'XML Sitemap が正しく生成されているか' },
+        { id: 'ogp_check', label: 'OGP（SNSシェア用）画像・テキストの確認', note: 'Facebook / Twitter でのシェアプレビューを確認' },
+      ]},
+      { label: '最終承認', items: [
+        { id: 'client_confirm', label: 'クライアントの最終確認・承認を取得', note: '書面またはメールで承認記録を残す', critical: true },
+        { id: 'launch_schedule', label: '公開日時・担当者をチームで共有', note: 'Slack / メール等で全員に周知' },
+      ]},
+    ]
+  },
+  {
+    id: 'launch_day', icon: '🚀', title: '公開当日',
+    sections: [
+      { label: 'DNS切り替え', items: [
+        { id: 'ns_switch', label: 'ネームサーバーを本番サーバーに切り替え', note: '切り替え前後のネームサーバー値を記録しておく', critical: true },
+        { id: 'dns_propagation', label: 'DNS反映の確認（最大24〜72時間）', note: 'whatsmydns.net などで複数リージョンの反映を確認' },
+        { id: 'old_server', label: '旧サーバー・旧環境の停止タイミングを確認', note: 'DNS反映が完全に終わるまで旧環境を維持する' },
+      ]},
+      { label: '公開後の動作確認', items: [
+        { id: 'top_access', label: '本番URLでトップページにアクセス確認', note: 'https:// でアクセスできるか。リダイレクトが正常か', critical: true },
+        { id: 'ssl_verify', label: 'SSL証明書の有効確認', note: 'ブラウザの鍵マーク・証明書の有効期限を確認' },
+        { id: 'form_prod', label: '全フォームの送受信テスト（本番）', note: '自動返信メール・管理者宛メールの両方を確認', critical: true },
+        { id: 'form_spam', label: 'スパム対策の確認', note: 'reCAPTCHA / Akismet が機能しているか' },
+        { id: 'links_prod', label: '主要ページのリンク動作確認', note: 'ナビゲーション・CTAボタン・内部リンクを確認' },
+        { id: '404_check', label: '404ページの表示確認', note: '存在しないURLにアクセスして適切な404が表示されるか' },
+        { id: 'redirect_check', label: 'リダイレクト設定の確認', note: 'http→https、www あり→なし（または逆）の統一' },
+      ]},
+      { label: '計測・インデックス', items: [
+        { id: 'ga_verify', label: 'Google Analytics のリアルタイム計測確認', note: '実際にアクセスしてリアルタイムレポートに表示されるか' },
+        { id: 'gsc_submit', label: 'Google Search Console にサイトマップ送信', note: '/sitemap.xml を送信' },
+        { id: 'index_request', label: 'トップページのインデックス登録をリクエスト', note: 'Search Console の URL検査 > インデックス登録をリクエスト' },
+      ]},
+      { label: '完了報告', items: [
+        { id: 'client_report', label: 'クライアントへの公開完了報告', note: '公開URL・確認事項を明記してメール送信', critical: true },
+        { id: 'team_report', label: 'チームへの完了報告・引き継ぎ', note: 'ログイン情報・保守対応の窓口を共有' },
+        { id: 'doc_save', label: 'サーバー・ドメイン情報の記録・保管', note: 'ログイン情報・契約情報・設定値を所定の場所に保存', critical: true },
+      ]},
+    ]
+  },
+  {
+    id: 'post_launch', icon: '✅', title: '公開後（1週間以内）',
+    sections: [
+      { label: '事後確認', items: [
+        { id: 'analytics_check', label: 'アクセス解析データの確認', note: '異常なトラフィックがないか。流入経路が正常か' },
+        { id: 'search_index', label: 'Googleへのインデックス状況確認', note: 'Search Console で「カバレッジ」を確認' },
+        { id: 'speed_check', label: 'ページ表示速度の確認', note: 'PageSpeed Insights で主要ページを計測' },
+        { id: 'backup_setup', label: '自動バックアップの設定確認', note: 'UpdraftPlus 等のバックアッププラグインが動作しているか' },
+        { id: 'security_check', label: 'セキュリティ設定の確認', note: 'Wordfence 等のセキュリティプラグイン、管理画面URLの変更' },
+      ]},
+    ]
+  }
+]
+
+// ===== STATE =====
+let projects = {}
+let currentId = null
+
+// ===== DB =====
+async function loadAllProjects() {
+  const { data } = await supabase.from('projects').select('*').order('created_at', { ascending: false })
+  projects = {}
+  for (const p of (data || [])) {
+    projects[p.id] = dbRowToProject(p)
+  }
+}
+
+async function loadChecksForProject(projectId) {
+  const { data } = await supabase.from('checks').select('item_id, checked').eq('project_id', projectId)
+  if (projects[projectId]) {
+    projects[projectId].checks = {}
+    for (const row of (data || [])) {
+      if (row.checked) projects[projectId].checks[row.item_id] = true
+    }
+  }
+}
+
+async function insertProject(name, url, date, owner) {
+  const { data, error } = await supabase.from('projects').insert({
+    name, url: url || null, launch_date: date || null, owner: owner || null
+  }).select().single()
+  if (error) throw error
+  projects[data.id] = dbRowToProject(data)
+  return data.id
+}
+
+async function saveProjectMeta(id) {
+  const p = projects[id]
+  await supabase.from('projects').update({
+    name: p.name, url: p.url || null,
+    launch_date: p.date || null, owner: p.owner || null
+  }).eq('id', id)
+}
+
+async function upsertCheck(projectId, itemId, checked) {
+  await supabase.from('checks').upsert(
+    { project_id: projectId, item_id: itemId, checked },
+    { onConflict: 'project_id,item_id' }
+  )
+}
+
+async function removeProject(id) {
+  await supabase.from('projects').delete().eq('id', id)
+}
+
+function dbRowToProject(p) {
+  return {
+    id: p.id, name: p.name, url: p.url || '',
+    date: p.launch_date || '', owner: p.owner || '',
+    createdAt: new Date(p.created_at).getTime(), checks: {}
+  }
+}
+
+// ===== REALTIME =====
+function subscribeRealtime() {
+  supabase.channel('db-changes')
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'checks' }, payload => {
+      const row = payload.new || {}
+      const pid = row.project_id
+      if (!pid || !projects[pid]) return
+      if (row.checked) {
+        projects[pid].checks[row.item_id] = true
+      } else {
+        delete projects[pid].checks[row.item_id]
+      }
+      renderSidebar()
+      if (pid === currentId) { renderChecklist(); updateProgress() }
+    })
+    .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'projects' }, payload => {
+      const p = payload.new
+      if (!projects[p.id]) { projects[p.id] = dbRowToProject(p); renderSidebar() }
+    })
+    .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'projects' }, payload => {
+      const p = payload.new
+      if (!projects[p.id]) return
+      Object.assign(projects[p.id], { name: p.name, url: p.url || '', date: p.launch_date || '', owner: p.owner || '' })
+      renderSidebar()
+      if (p.id === currentId) {
+        document.getElementById('editName').value = p.name
+        document.getElementById('editUrl').value = p.url || ''
+        document.getElementById('editDate').value = p.launch_date || ''
+        document.getElementById('editOwner').value = p.owner || ''
+      }
+    })
+    .on('postgres_changes', { event: 'DELETE', schema: 'public', table: 'projects' }, payload => {
+      const id = payload.old.id
+      delete projects[id]
+      renderSidebar()
+      if (id === currentId) {
+        currentId = null
+        document.getElementById('projectView').style.display = 'none'
+        document.getElementById('emptyState').style.display = 'flex'
+      }
+    })
+    .subscribe()
+}
+
+// ===== RENDER SIDEBAR =====
+function calcProgress(proj) {
+  let total = 0, done = 0
+  PHASES.forEach(p => p.sections.forEach(s => s.items.forEach(i => {
+    total++
+    if (proj.checks && proj.checks[i.id]) done++
+  })))
+  return { total, done, pct: total ? Math.round(done / total * 100) : 0 }
+}
+
+function renderSidebar() {
+  const list = document.getElementById('projectList')
+  const ids = Object.keys(projects).sort((a, b) => (projects[b].createdAt || 0) - (projects[a].createdAt || 0))
+  if (ids.length === 0) {
+    list.innerHTML = '<div class="project-list-label">案件なし</div>'
+    return
+  }
+  let html = '<div class="project-list-label">案件一覧</div>'
+  ids.forEach(id => {
+    const p = projects[id]
+    const { pct } = calcProgress(p)
+    const active = id === currentId ? 'active' : ''
+    html += `
+      <div class="project-item ${active}" onclick="window._selectProject('${id}')">
+        <div class="project-item-name">${esc(p.name)}</div>
+        <div class="project-item-meta">
+          <div class="project-item-bar"><div class="project-item-bar-fill" style="width:${pct}%"></div></div>
+          <span class="project-item-pct">${pct}%</span>
+        </div>
+      </div>`
+  })
+  list.innerHTML = html
+}
+
+// ===== SELECT PROJECT =====
+window._selectProject = async function(id) {
+  showLoading(true)
+  currentId = id
+  localStorage.setItem('cl_current', id)
+  if (!projects[id].checks || Object.keys(projects[id].checks).length === 0) {
+    await loadChecksForProject(id)
+  }
+  renderSidebar()
+  renderProjectView()
+  showLoading(false)
+}
+
+function renderProjectView() {
+  const proj = projects[currentId]
+  document.getElementById('emptyState').style.display = 'none'
+  const view = document.getElementById('projectView')
+  view.style.display = 'flex'
+  document.getElementById('editName').value = proj.name || ''
+  document.getElementById('editUrl').value = proj.url || ''
+  document.getElementById('editDate').value = proj.date || ''
+  document.getElementById('editOwner').value = proj.owner || ''
+  renderChecklist()
+  updateProgress()
+}
+
+function renderChecklist() {
+  const proj = projects[currentId]
+  const area = document.getElementById('checklistArea')
+  let html = ''
+  PHASES.forEach(phase => {
+    let phaseTotal = 0, phaseDone = 0
+    let sectionsHtml = ''
+    phase.sections.forEach(section => {
+      sectionsHtml += `<div class="section-label">${section.label}</div>`
+      section.items.forEach(item => {
+        const checked = proj.checks && proj.checks[item.id]
+        phaseTotal++
+        if (checked) phaseDone++
+        const critTag = item.critical ? `<span class="tag tag-critical">重要</span>` : ''
+        sectionsHtml += `
+          <div class="check-item ${checked ? 'done' : ''}" onclick="window._toggleItem('${item.id}')">
+            <input type="checkbox" ${checked ? 'checked' : ''} onclick="event.stopPropagation(); window._toggleItem('${item.id}')" />
+            <div class="text">
+              <div class="label">${item.label}${critTag}</div>
+              ${item.note ? `<div class="note">${item.note}</div>` : ''}
+            </div>
+          </div>`
+      })
+    })
+    const doneClass = phaseDone === phaseTotal ? 'done' : ''
+    html += `
+      <div class="phase" id="phase_${phase.id}">
+        <div class="phase-header" onclick="togglePhase('${phase.id}')">
+          <span class="phase-icon">${phase.icon}</span>
+          <span class="phase-title">${phase.title}</span>
+          <span class="phase-count ${doneClass}">${phaseDone} / ${phaseTotal}</span>
+          <span class="phase-toggle">▾</span>
+        </div>
+        <div class="phase-body">${sectionsHtml}</div>
+      </div>`
+  })
+  area.innerHTML = html
+}
+
+window.togglePhase = function(id) {
+  document.getElementById('phase_' + id).classList.toggle('collapsed')
+}
+
+window._toggleItem = async function(itemId) {
+  if (!currentId) return
+  const proj = projects[currentId]
+  if (!proj.checks) proj.checks = {}
+  const newVal = !proj.checks[itemId]
+  proj.checks[itemId] = newVal
+  renderChecklist()
+  updateProgress()
+  renderSidebar()
+  await upsertCheck(currentId, itemId, newVal)
+}
+
+function updateProgress() {
+  if (!currentId) return
+  const { done, total, pct } = calcProgress(projects[currentId])
+  document.getElementById('progressFill').style.width = pct + '%'
+  document.getElementById('progressText').textContent = `${done} / ${total} 完了`
+}
+
+// ===== META INPUT =====
+let metaSaveTimer = null
+window.onNameInput = function() {
+  if (!currentId) return
+  projects[currentId].name = document.getElementById('editName').value
+  clearTimeout(metaSaveTimer)
+  metaSaveTimer = setTimeout(() => { saveProjectMeta(currentId); renderSidebar() }, 600)
+}
+window.onMetaInput = function() {
+  if (!currentId) return
+  projects[currentId].url = document.getElementById('editUrl').value
+  projects[currentId].date = document.getElementById('editDate').value
+  projects[currentId].owner = document.getElementById('editOwner').value
+  clearTimeout(metaSaveTimer)
+  metaSaveTimer = setTimeout(() => saveProjectMeta(currentId), 600)
+}
+
+// ===== MODAL =====
+window.openNewModal = function() {
+  ['newName','newUrl','newDate','newOwner'].forEach(id => document.getElementById(id).value = '')
+  document.getElementById('newModal').classList.remove('hidden')
+  setTimeout(() => document.getElementById('newName').focus(), 50)
+}
+window.closeNewModal = function() {
+  document.getElementById('newModal').classList.add('hidden')
+}
+document.getElementById('newModal').addEventListener('click', e => {
+  if (e.target === document.getElementById('newModal')) window.closeNewModal()
+})
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape') window.closeNewModal()
+  if (e.key === 'Enter' && !document.getElementById('newModal').classList.contains('hidden')) window.createProject()
+})
+
+window.createProject = async function() {
+  const name = document.getElementById('newName').value.trim()
+  if (!name) { document.getElementById('newName').focus(); return }
+  showLoading(true)
+  window.closeNewModal()
+  try {
+    const id = await insertProject(
+      name,
+      document.getElementById('newUrl').value.trim(),
+      document.getElementById('newDate').value,
+      document.getElementById('newOwner').value.trim()
+    )
+    renderSidebar()
+    await window._selectProject(id)
+    showToast(`「${name}」を作成しました`)
+  } catch(e) {
+    showToast('作成に失敗しました')
+  } finally {
+    showLoading(false)
+  }
+}
+
+window.deleteProject = async function() {
+  const name = projects[currentId]?.name || 'この案件'
+  if (!confirm(`「${name}」を削除しますか？\nチェックデータも全て削除されます。`)) return
+  showLoading(true)
+  await removeProject(currentId)
+  delete projects[currentId]
+  currentId = null
+  localStorage.removeItem('cl_current')
+  document.getElementById('projectView').style.display = 'none'
+  document.getElementById('emptyState').style.display = 'flex'
+  renderSidebar()
+  showLoading(false)
+  showToast('削除しました')
+}
+
+window.uncheckAll = async function() {
+  if (!currentId) return
+  if (!confirm('全てのチェックをリセットしますか？')) return
+  showLoading(true)
+  await supabase.from('checks').delete().eq('project_id', currentId)
+  projects[currentId].checks = {}
+  renderChecklist()
+  updateProgress()
+  renderSidebar()
+  showLoading(false)
+  showToast('リセットしました')
+}
+
+// ===== EXPORT =====
+window.exportTxt = function() {
+  if (!currentId) return
+  const p = projects[currentId]
+  const { done, total, pct } = calcProgress(p)
+  const lines = [
+    'サイト公開チェックリスト',
+    `出力日時：${new Date().toLocaleString('ja-JP')}`,
+    '',
+    `案件名　　：${p.name || '未設定'}`,
+    `本番URL　：${p.url || '未設定'}`,
+    `公開予定日：${p.date || '未設定'}`,
+    `担当者　　：${p.owner || '未設定'}`,
+    `進捗　　　：${done} / ${total} 完了（${pct}%）`,
+    '',
+  ]
+  PHASES.forEach(phase => {
+    lines.push('\n' + '='.repeat(44))
+    lines.push(`${phase.icon} ${phase.title}`)
+    lines.push('='.repeat(44))
+    phase.sections.forEach(s => {
+      lines.push(`\n【${s.label}】`)
+      s.items.forEach(i => {
+        const mark = p.checks && p.checks[i.id] ? '☑' : '☐'
+        lines.push(`  ${mark} ${i.label}${i.critical ? ' ★重要' : ''}`)
+      })
+    })
+  })
+  const blob = new Blob([lines.join('\n')], { type: 'text/plain;charset=utf-8' })
+  const a = document.createElement('a')
+  a.href = URL.createObjectURL(blob)
+  a.download = `公開チェックリスト_${p.name || '案件'}_${p.date || '日付未設定'}.txt`
+  a.click()
+  showToast('テキストファイルを書き出しました')
+}
+
+// ===== UTIL =====
+function esc(s) {
+  return (s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;')
+}
+function showLoading(v) {
+  document.getElementById('loadingOverlay').classList.toggle('hidden', !v)
+}
+function showToast(msg) {
+  const t = document.getElementById('toast')
+  t.textContent = msg
+  t.classList.add('show')
+  setTimeout(() => t.classList.remove('show'), 2500)
+}
+
+// ===== INIT =====
+showLoading(true)
+await loadAllProjects()
+subscribeRealtime()
+renderSidebar()
+const lastId = localStorage.getItem('cl_current')
+if (lastId && projects[lastId]) {
+  await window._selectProject(lastId)
+} else {
+  document.getElementById('emptyState').style.display = 'flex'
+  showLoading(false)
+}
+</script>
+</body>
+</html>
