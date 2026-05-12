@@ -97,6 +97,7 @@ export default async function handler(req, res) {
   const webhook = process.env.SLACK_WEBHOOK_URL
   if (!webhook) return res.status(500).json({ error: 'SLACK_WEBHOOK_URL が設定されていません' })
 
+  const force = req.query.force === 'true'
   const today = jstDate()
   const sent = []
 
@@ -110,7 +111,7 @@ export default async function handler(req, res) {
 
     // 送信対象外（6週超 or 公開済み）
     if (daysUntil > 42 || daysUntil < 0) continue
-    if (!shouldSendToday(daysUntil)) continue
+    if (!force && !shouldSendToday(daysUntil)) continue
 
     // 完了済み項目を取得
     const checks = await sbFetch(
