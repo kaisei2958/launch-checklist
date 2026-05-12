@@ -98,6 +98,16 @@
     .btn-danger { background: white; border: 1.5px solid #fcc; color: #c00; }
     .btn-danger:hover { background: #fee; }
 
+    /* MEMO BAR */
+    .memo-bar { background: white; border-bottom: 1px solid #e5e7eb; padding: 10px 32px; }
+    .memo-bar label { font-size: 11px; font-weight: 600; color: #999; display: block; margin-bottom: 4px; }
+    .memo-bar textarea {
+      width: 100%; border: 1.5px solid #e5e7eb; border-radius: 6px;
+      padding: 7px 10px; font-size: 13px; resize: vertical; min-height: 54px;
+      font-family: inherit; line-height: 1.6; color: #333;
+    }
+    .memo-bar textarea:focus { outline: none; border-color: #4f46e5; }
+
     /* CHECKLIST */
     .checklist-area { padding: 24px 32px; flex: 1; }
     .phase { background: white; border-radius: 12px; margin-bottom: 16px; box-shadow: 0 1px 4px rgba(0,0,0,0.06); overflow: hidden; }
@@ -248,6 +258,10 @@
           <button class="btn btn-danger" onclick="deleteProject()">削除</button>
         </div>
       </div>
+      <div class="memo-bar">
+        <label>備考・メモ</label>
+        <textarea id="editMemo" placeholder="案件に関するメモ、注意事項、引き継ぎ事項など..." oninput="onMemoInput()"></textarea>
+      </div>
       <div class="checklist-area" id="checklistArea"></div>
     </div>
   </main>
@@ -329,12 +343,21 @@ const PHASES = [
         { id: 'browser_check', label: 'クロスブラウザ確認', note: 'Chrome / Safari / Edge / Firefox で主要ページを確認' },
         { id: 'design_check', label: 'デザイン崩れ確認', note: '各デバイス・ブラウザでレイアウトが正常か確認' },
       ]},
-      { label: 'SEO・アナリティクス', items: [
+      { label: 'SEO設定', items: [
         { id: 'meta_title', label: '全ページのtitle・descriptionを確認', note: '重複・空欄がないか。キーワードが含まれているか' },
-        { id: 'ga_setup', label: 'Google Analytics / GTM の設定', note: '測定IDが正しいか。計測されているか確認' },
         { id: 'gsc_setup', label: 'Google Search Console に登録', note: '本番URLで登録。所有権確認まで完了させる' },
         { id: 'sitemap', label: 'サイトマップの生成・設定確認', note: 'XML Sitemap が正しく生成されているか' },
         { id: 'ogp_check', label: 'OGP（SNSシェア用）画像・テキストの確認', note: 'Facebook / Twitter でのシェアプレビューを確認' },
+      ]},
+      { label: 'タグ・計測ツール', items: [
+        { id: 'gtm_publish', label: 'GTM コンテナの公開・バージョン確認', note: 'タグマネージャーの公開済みバージョンが最新か確認', critical: true },
+        { id: 'ga4_tag', label: 'GA4 タグの動作確認', note: 'GTM プレビューモード または DebugView でページビューが計測されているか確認', critical: true },
+        { id: 'ga4_goals', label: 'GA4 コンバージョンイベントの設定確認', note: 'お問い合わせ・資料DL等のコンバージョン計測が設定されているか（使用している場合）' },
+        { id: 'gads_conv', label: 'Google Ads コンバージョンタグの確認', note: 'GTM経由または直接実装のコンバージョンタグが正常か（使用している場合）' },
+        { id: 'meta_pixel', label: 'Meta（Facebook）ピクセルの設定確認', note: 'Meta Pixel Helper で計測されているか（使用している場合）' },
+        { id: 'ma_tracking', label: 'MAツールのトラッキングコード設置確認', note: 'HubSpot / Marketo / Pardot / Salesforce 等のトラッキングコードが全ページに設置されているか', critical: true },
+        { id: 'ma_form', label: 'MAツールとフォームの連携確認', note: 'フォーム送信後にリードがCRM / MAツールに登録されるか確認（使用している場合）', critical: true },
+        { id: 'heatmap', label: 'ヒートマップ・行動計測ツールの設置確認', note: 'Hotjar / Microsoft Clarity 等のスクリプトが設置されているか（使用している場合）' },
       ]},
       { label: '最終承認', items: [
         { id: 'client_confirm', label: 'クライアントの最終確認・承認を取得', note: '書面またはメールで承認記録を残す', critical: true },
@@ -421,7 +444,8 @@ async function saveProjectMeta(id) {
   const p = projects[id]
   await supabase.from('projects').update({
     name: p.name, url: p.url || null,
-    launch_date: p.date || null, owner: p.owner || null
+    launch_date: p.date || null, owner: p.owner || null,
+    memo: p.memo || null
   }).eq('id', id)
 }
 
@@ -440,6 +464,7 @@ function dbRowToProject(p) {
   return {
     id: p.id, name: p.name, url: p.url || '',
     date: p.launch_date || '', owner: p.owner || '',
+    memo: p.memo || '',
     createdAt: new Date(p.created_at).getTime(), checks: {}
   }
 }
@@ -466,13 +491,16 @@ function subscribeRealtime() {
     .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'projects' }, payload => {
       const p = payload.new
       if (!projects[p.id]) return
-      Object.assign(projects[p.id], { name: p.name, url: p.url || '', date: p.launch_date || '', owner: p.owner || '' })
+      Object.assign(projects[p.id], { name: p.name, url: p.url || '', date: p.launch_date || '', owner: p.owner || '', memo: p.memo || '' })
       renderSidebar()
       if (p.id === currentId) {
         document.getElementById('editName').value = p.name
         document.getElementById('editUrl').value = p.url || ''
         document.getElementById('editDate').value = p.launch_date || ''
         document.getElementById('editOwner').value = p.owner || ''
+        if (document.activeElement !== document.getElementById('editMemo')) {
+          document.getElementById('editMemo').value = p.memo || ''
+        }
       }
     })
     .on('postgres_changes', { event: 'DELETE', schema: 'public', table: 'projects' }, payload => {
@@ -544,6 +572,7 @@ function renderProjectView() {
   document.getElementById('editUrl').value = proj.url || ''
   document.getElementById('editDate').value = proj.date || ''
   document.getElementById('editOwner').value = proj.owner || ''
+  document.getElementById('editMemo').value = proj.memo || ''
   renderChecklist()
   updateProgress()
 }
@@ -625,6 +654,12 @@ window.onMetaInput = function() {
   projects[currentId].owner = document.getElementById('editOwner').value
   clearTimeout(metaSaveTimer)
   metaSaveTimer = setTimeout(() => saveProjectMeta(currentId), 600)
+}
+window.onMemoInput = function() {
+  if (!currentId) return
+  projects[currentId].memo = document.getElementById('editMemo').value
+  clearTimeout(metaSaveTimer)
+  metaSaveTimer = setTimeout(() => saveProjectMeta(currentId), 800)
 }
 
 // ===== MODAL =====
@@ -708,6 +743,7 @@ window.exportTxt = function() {
     `公開予定日：${p.date || '未設定'}`,
     `担当者　　：${p.owner || '未設定'}`,
     `進捗　　　：${done} / ${total} 完了（${pct}%）`,
+    ...(p.memo ? [``, `【備考】`, p.memo] : []),
     '',
   ]
   PHASES.forEach(phase => {
