@@ -336,14 +336,25 @@ const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY)
 // ===== チェックリスト定義 =====
 const PHASES = [
   {
+    id: 'pre_months', icon: '🗓️', title: '公開1〜2ヶ月前',
+    sections: [
+      { label: 'ドメイン取得（公開6週前目安）', items: [
+        { id: 'domain_search',   label: 'ドメイン名の候補選定・空き確認', note: '希望ドメインが取得可能か事前に確認。取得済みの場合は移管対応も確認' },
+        { id: 'domain_contract', label: 'ドメインの取得・契約', note: '移管・新規取得とも時間がかかる場合あり。遅くとも公開6週前までに完了', critical: true },
+        { id: 'domain_auth',     label: 'ドメイン認証・所有者情報の確認', note: 'Whois 情報・認証メールの受信確認' },
+      ]},
+      { label: 'サーバー・インフラ準備（公開4週前目安）', items: [
+        { id: 'server_plan',     label: '本番サーバーの選定・候補比較', note: '容量・PHPバージョン・メール・価格を比較' },
+        { id: 'server_contract', label: '本番サーバーの契約', note: '設定やドメイン紐付けに時間がかかるため遅くとも公開4週前までに', critical: true },
+        { id: 'email_plan',      label: 'メールアカウントの設計・取得', note: 'info@ / contact@ などのアドレス構成を確定。設定テストまで完了' },
+        { id: 'ssl_plan',        label: 'SSL証明書の種類・取得方法の確認', note: "Let's Encrypt / 有料証明書 / サーバー提供の無料SSL" },
+        { id: 'nameserver_record', label: '現在のネームサーバー設定を記録', note: '切り替え前の状態をメモしておく', critical: true },
+      ]},
+    ]
+  },
+  {
     id: 'pre_week', icon: '📋', title: '公開1週間前まで',
     sections: [
-      { label: 'サーバー・ドメイン準備', items: [
-        { id: 'server_contract', label: '本番サーバーの契約・プラン確認', note: '容量・PHPバージョン・メール設定などの要件確認', critical: true },
-        { id: 'domain_contract', label: 'ドメインの取得・契約確認', note: '有効期限・所有者情報を確認' },
-        { id: 'nameserver_record', label: '現在のネームサーバー設定を記録', note: '切り替え前の状態をメモしておく', critical: true },
-        { id: 'ssl_plan', label: 'SSL証明書の発行方法を確認', note: "Let's Encrypt / 有料証明書 / サーバー提供の無料SSL" },
-      ]},
       { label: '開発環境の最終確認', items: [
         { id: 'dev_freeze', label: 'コンテンツ・デザインの最終確定', note: '公開1週間前以降は原則変更なし' },
         { id: 'plugin_check', label: 'プラグインの動作確認・更新', note: '不要なプラグインは無効化または削除' },
