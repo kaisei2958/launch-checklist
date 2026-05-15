@@ -78,6 +78,15 @@
     .progress-section-fill { height: 100%; background: #4caf50; border-radius: 5px; transition: width 0.3s; }
     .progress-section-meta { display: flex; align-items: center; gap: 8px; }
     .progress-section-text { font-size: 13px; color: #555; font-weight: 600; }
+    .next-actions-area { margin-top: 10px; padding-top: 10px; border-top: 1px solid #f3f4f6; }
+    .na-phase { font-size: 12px; font-weight: 700; color: #4f46e5; margin-bottom: 6px; }
+    .na-days { font-weight: 400; color: #888; }
+    .na-overdue { font-size: 12px; color: #dc2626; margin-bottom: 6px; }
+    .na-label { font-size: 11px; font-weight: 700; color: #999; margin-bottom: 4px; letter-spacing: 0.05em; }
+    .na-items { display: flex; flex-direction: column; gap: 3px; }
+    .na-item { font-size: 13px; color: #333; }
+    .na-done { font-size: 13px; color: #16a34a; font-weight: 600; }
+    .na-nodate { font-size: 12px; color: #bbb; }
 
     /* META BAR */
     .meta-bar {
@@ -294,6 +303,7 @@
         <div class="progress-section-meta">
           <span class="progress-section-text" id="progressText">0 / 0 完了</span>
         </div>
+        <div class="next-actions-area" id="nextActionsArea"></div>
       </div>
       <div class="meta-bar">
         <div class="meta-field">
@@ -401,6 +411,58 @@ const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBh
 const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY)
 
 // ===== チェックリスト定義 =====
+const ITEM_DUE_BY = {
+  // ドメイン
+  domain_search:42, domain_contract:42, domain_transfer_unlock:42, domain_auth_code:42,
+  domain_transfer_apply:35, domain_transfer_confirm:28,
+  domain_current_dns:28, domain_registrar:28, domain_whois:35,
+  // Webサーバー
+  server_old_backup:28, server_php_check:21, ssl_plan:28, nameserver_record:14, server_existing_php:14,
+  // メールサーバー
+  email_plan:28, email_mx_plan:28, email_spf_dkim:21, email_mx_backup:14, email_test_before:7,
+  // 1週間前
+  dev_freeze:7, plugin_check:7, wp_version:7, form_dev:7,
+  // 3日前
+  db_export:3, files_upload:3, db_import:3, url_replace:3, wp_config:3, staging_access:3,
+  noindex_off:3, permalink:3, admin_pass:3,
+  gtm_publish:3, ga4_tag:3, ga4_goals:3, gads_conv:3, meta_pixel:3, ma_tracking:3, ma_form:3, heatmap:3,
+  // 前日
+  typo_check:1, link_check:1, image_check:1, sp_check:1, browser_check:1, design_check:1,
+  meta_title:1, gsc_setup:1, sitemap:1, ogp_check:1, client_confirm:1, launch_schedule:1,
+  // 当日
+  ns_switch:0, dns_propagation:0, old_server:0,
+  top_access:0, form_prod:0, form_spam:0, links_prod:0, '404_check':0, redirect_check:0,
+  ga_verify:0, gsc_submit:0, index_request:0, client_report:0, team_report:0, doc_save:0,
+}
+
+function phaseLabel(days) {
+  if (days >= 35) return { icon: '🗓️', label: '1〜2ヶ月前フェーズ' }
+  if (days >= 14) return { icon: '📋', label: '仕込みフェーズ' }
+  if (days >= 7)  return { icon: '🔧', label: '移行準備フェーズ' }
+  if (days >= 3)  return { icon: '⚠️', label: '最終確認フェーズ' }
+  if (days >= 1)  return { icon: '🔥', label: '追い込みフェーズ' }
+  if (days === 0) return { icon: '🚀', label: '公開当日' }
+  return null
+}
+
+function calcNextActions(proj) {
+  if (!proj.date) return null
+  const jstToday = new Date(Date.now() + 9 * 60 * 60 * 1000).toISOString().slice(0, 10)
+  const daysUntil = Math.round((new Date(proj.date) - new Date(jstToday)) / (1000 * 60 * 60 * 24))
+  const phase = phaseLabel(daysUntil)
+  if (!phase) return { daysUntil, phase: null, overdue: [], next: [] }
+  const checks = proj.checks || {}
+  const allItems = []
+  PHASES.forEach(p => p.sections.forEach(s => s.items.forEach(item => {
+    if (itemApplies(item, proj) && ITEM_DUE_BY[item.id] !== undefined)
+      allItems.push({ id: item.id, label: item.label, dueBy: ITEM_DUE_BY[item.id] })
+  })))
+  const overdue = allItems.filter(i => !checks[i.id] && i.dueBy > daysUntil)
+  const next = allItems.filter(i => !checks[i.id] && i.dueBy <= daysUntil)
+    .sort((a, b) => b.dueBy - a.dueBy).slice(0, 3)
+  return { daysUntil, phase, overdue, next }
+}
+
 const PHASES = [
   {
     id: 'pre_months', icon: '🗓️', title: '公開1〜2ヶ月前',
@@ -874,6 +936,34 @@ function updateProgress() {
   const { done, total, pct } = calcProgress(projects[currentId])
   document.getElementById('progressFill').style.width = pct + '%'
   document.getElementById('progressText').textContent = `${done} / ${total} 完了（${pct}%）`
+  updateNextActions()
+}
+
+function updateNextActions() {
+  const el = document.getElementById('nextActionsArea')
+  if (!el || !currentId) return
+  const proj = projects[currentId]
+  if (!proj.date) {
+    el.innerHTML = '<p class="na-nodate">公開日を設定するとネクストアクションが表示されます</p>'
+    return
+  }
+  const r = calcNextActions(proj)
+  if (!r || !r.phase) {
+    el.innerHTML = '<p class="na-nodate">公開済み</p>'
+    return
+  }
+  const { daysUntil, phase, overdue, next } = r
+  const dateLabel = daysUntil === 0 ? '本日公開！' : `公開まで ${daysUntil} 日`
+  let html = `<div class="na-phase">${phase.icon} ${phase.label} <span class="na-days">— ${dateLabel}</span></div>`
+  if (overdue.length > 0) {
+    html += `<div class="na-overdue">🔴 遅れ ${overdue.length} 件: ${overdue.slice(0, 2).map(i => i.label).join('、')}${overdue.length > 2 ? ' 他' : ''}</div>`
+  }
+  if (next.length > 0) {
+    html += `<div class="na-label">🎯 ネクストアクション</div><div class="na-items">${next.map(i => `<div class="na-item">・${i.label}</div>`).join('')}</div>`
+  } else if (overdue.length === 0) {
+    html += `<div class="na-done">✅ 現フェーズの項目はすべて完了！</div>`
+  }
+  el.innerHTML = html
 }
 
 function updateURL(id) {
