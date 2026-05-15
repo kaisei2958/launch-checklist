@@ -71,10 +71,13 @@
       width: 100%; background: transparent;
     }
     .topbar-title input:focus { text-decoration: underline; }
-    .progress-wrap { display: flex; align-items: center; gap: 10px; }
-    .progress-bar-bg { width: 120px; height: 8px; background: #e5e7eb; border-radius: 4px; overflow: hidden; }
-    .progress-bar-fg { height: 100%; background: #4caf50; border-radius: 4px; transition: width 0.3s; }
-    .progress-text { font-size: 13px; color: #888; white-space: nowrap; }
+    .btn-share { font-size: 12px; padding: 6px 14px; border-radius: 7px; border: 1.5px solid #e5e7eb; background: white; color: #555; cursor: pointer; white-space: nowrap; }
+    .btn-share:hover { border-color: #4f46e5; color: #4f46e5; }
+    .progress-section { padding: 10px 32px 14px; background: white; border-bottom: 1px solid #e5e7eb; }
+    .progress-section-track { height: 10px; background: #e5e7eb; border-radius: 5px; overflow: hidden; margin-bottom: 6px; }
+    .progress-section-fill { height: 100%; background: #4caf50; border-radius: 5px; transition: width 0.3s; }
+    .progress-section-meta { display: flex; align-items: center; gap: 8px; }
+    .progress-section-text { font-size: 13px; color: #555; font-weight: 600; }
 
     /* META BAR */
     .meta-bar {
@@ -282,11 +285,14 @@
         <div class="topbar-title">
           <input type="text" id="editName" placeholder="案件名" oninput="onNameInput()" />
         </div>
-        <div class="progress-wrap">
-          <div class="progress-bar-bg">
-            <div class="progress-bar-fg" id="progressFill" style="width:0%"></div>
-          </div>
-          <span class="progress-text" id="progressText">0 / 0</span>
+        <button class="btn-share" onclick="copyShareUrl()">🔗 URLをコピー</button>
+      </div>
+      <div class="progress-section">
+        <div class="progress-section-track">
+          <div class="progress-section-fill" id="progressFill" style="width:0%"></div>
+        </div>
+        <div class="progress-section-meta">
+          <span class="progress-section-text" id="progressText">0 / 0 完了</span>
         </div>
       </div>
       <div class="meta-bar">
@@ -703,6 +709,7 @@ window._selectProject = async function(id) {
   showLoading(true)
   currentId = id
   localStorage.setItem('cl_current', id)
+  updateURL(id)
   if (!projects[id].checks || Object.keys(projects[id].checks).length === 0) {
     await loadChecksForProject(id)
   }
@@ -866,7 +873,20 @@ function updateProgress() {
   if (!currentId) return
   const { done, total, pct } = calcProgress(projects[currentId])
   document.getElementById('progressFill').style.width = pct + '%'
-  document.getElementById('progressText').textContent = `${done} / ${total} 完了`
+  document.getElementById('progressText').textContent = `${done} / ${total} 完了（${pct}%）`
+}
+
+function updateURL(id) {
+  const url = new URL(window.location)
+  if (id) url.searchParams.set('p', id)
+  else url.searchParams.delete('p')
+  history.replaceState(null, '', url)
+}
+
+window.copyShareUrl = function() {
+  const url = new URL(window.location)
+  url.searchParams.set('p', currentId)
+  navigator.clipboard.writeText(url.toString()).then(() => showToast('URLをコピーしました'))
 }
 
 // ===== META INPUT =====
@@ -1072,9 +1092,11 @@ showLoading(true)
 await loadAllProjects()
 subscribeRealtime()
 renderSidebar()
-const lastId = localStorage.getItem('cl_current')
-if (lastId && projects[lastId]) {
-  await window._selectProject(lastId)
+const paramId = new URLSearchParams(window.location.search).get('p')
+const lastId  = localStorage.getItem('cl_current')
+const initId  = (paramId && projects[paramId]) ? paramId : (lastId && projects[lastId]) ? lastId : null
+if (initId) {
+  await window._selectProject(initId)
 } else {
   document.getElementById('emptyState').style.display = 'flex'
   showLoading(false)
