@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>サイト公開チェックリスト</title>
+  <title>LaunchFlow</title>
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; }
     body {
@@ -259,7 +259,7 @@
 <div class="app">
   <aside class="sidebar">
     <div class="sidebar-header">
-      <h1>公開チェックリスト</h1>
+      <h1>LaunchFlow</h1>
       <p>WordPress 公開フロー管理</p>
       <div class="live-badge"><span class="live-dot"></span>リアルタイム同期中</div>
     </div>
@@ -1022,7 +1022,7 @@ window.exportTxt = function() {
   const p = projects[currentId]
   const { done, total, pct } = calcProgress(p)
   const lines = [
-    'サイト公開チェックリスト',
+    'LaunchFlow',
     `出力日時：${new Date().toLocaleString('ja-JP')}`,
     '',
     `案件名　　：${p.name || '未設定'}`,
@@ -1048,7 +1048,7 @@ window.exportTxt = function() {
   const blob = new Blob([lines.join('\n')], { type: 'text/plain;charset=utf-8' })
   const a = document.createElement('a')
   a.href = URL.createObjectURL(blob)
-  a.download = `公開チェックリスト_${p.name || '案件'}_${p.date || '日付未設定'}.txt`
+  a.download = `LaunchFlow_${p.name || '案件'}_${p.date || '日付未設定'}.txt`
   a.click()
   showToast('テキストファイルを書き出しました')
 }
